@@ -3,10 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cozy Properties</title>
+<title>Cozy Stays PG</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1F5C4F">
-<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#1349AF">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#EEF2EF;
@@ -15,10 +20,10 @@
     --ink:#182420;
     --ink-soft:#647169;
     --border:#E1E7E3;
-    --primary:#1F5C4F;
-    --primary-light:#2E8C74;
-    --primary-dark:#123B32;
-    --primary-tint:#DCEFE8;
+    --primary:#0E7C66;
+    --primary-light:#18C896;
+    --primary-dark:#0A3D34;
+    --primary-tint:#DCF7ED;
     --dev:#22965F;
     --dev-tint:#E0F5E9;
     --par:#D6952A;
@@ -45,10 +50,10 @@
   html,body{height:100%;}
   body{
     margin:0;
-    background:radial-gradient(1000px 500px at 50% -8%, #E6F2EC 0%, #EEF2EF 42%);
+    background:radial-gradient(1000px 520px at 50% -10%, #DCF7ED 0%, #F0F4F2 40%, #EEF2EF 70%);
     background-attachment:fixed;
     color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased;
     overscroll-behavior-y:none;
   }
@@ -207,25 +212,25 @@
     margin-bottom:14px;
   }
   .stat-card{
-    background:var(--surface);
+    background:linear-gradient(165deg, #FFFFFF, var(--surface-2));
     border:1px solid var(--border);
-    border-radius:var(--radius-md);
+    border-radius:var(--radius-lg);
     padding:14px;
-    box-shadow:var(--shadow-xs);
+    box-shadow:var(--shadow-sm);
     transition:transform .18s var(--ease-smooth), box-shadow .18s var(--ease-smooth);
   }
-  .stat-card:active{ transform:translateY(1px) scale(.985); box-shadow:none; }
+  .stat-card:active{ transform:translateY(1px) scale(.985); box-shadow:var(--shadow-xs); }
   .stat-icon{
-    width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-    margin-bottom:9px;
+    width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+    margin-bottom:10px; color:#fff;
   }
-  .stat-icon svg{ width:16px; height:16px; }
-  .stat-icon.blue{ background:var(--blue-tint); color:var(--blue); }
-  .stat-icon.green{ background:var(--dev-tint); color:var(--dev); }
-  .stat-icon.red{ background:var(--negative-tint); color:var(--negative); }
-  .stat-icon.purple{ background:var(--purple-tint); color:var(--purple); }
-  .stat-icon.amber{ background:var(--par-tint); color:var(--par); }
-  .stat-icon.primary{ background:var(--primary-tint); color:var(--primary); }
+  .stat-icon svg{ width:17px; height:17px; }
+  .stat-icon.blue{ background:linear-gradient(135deg,#5B9BF7,#2A5FD1); box-shadow:0 8px 16px -6px rgba(42,95,209,.55); }
+  .stat-icon.green{ background:linear-gradient(135deg,#3CE0A0,#0E9D68); box-shadow:0 8px 16px -6px rgba(14,157,104,.5); }
+  .stat-icon.red{ background:linear-gradient(135deg,#FB7C8C,#DC2645); box-shadow:0 8px 16px -6px rgba(220,38,69,.5); }
+  .stat-icon.purple{ background:linear-gradient(135deg,#B294FA,#7C3AED); box-shadow:0 8px 16px -6px rgba(124,58,237,.5); }
+  .stat-icon.amber{ background:linear-gradient(135deg,#FDC856,#DB8B0B); box-shadow:0 8px 16px -6px rgba(219,139,11,.5); }
+  .stat-icon.primary{ background:linear-gradient(135deg,var(--primary-light),var(--primary-dark)); box-shadow:0 8px 16px -6px rgba(10,61,52,.5); }
   .stat-card .label{ font-size:12px; color:var(--ink-soft); margin:0 0 3px; font-weight:600; }
   .stat-card .value{ font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; margin:0; letter-spacing:-0.01em; }
   .stat-card .value.warn{ color:var(--negative); }
@@ -306,12 +311,12 @@
   .list-card-sub{ font-size:12.5px; color:var(--ink-soft); }
   .chip-row{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
   .chip{ font-size:11px; font-weight:700; padding:3.5px 9px; border-radius:20px; white-space:nowrap; }
-  .chip.prop{ background:var(--primary-tint); color:var(--primary); }
-  .chip.dev{ background:var(--dev-tint); color:var(--dev); }
-  .chip.par{ background:var(--par-tint); color:var(--par); }
-  .chip.active{ background:var(--dev-tint); color:var(--dev); }
-  .chip.notice{ background:var(--notice-tint); color:var(--notice); }
-  .chip.vacated{ background:#EEE; color:#888; }
+  .chip.prop{ background:linear-gradient(135deg,var(--primary-light),var(--primary-dark)); color:#fff; }
+  .chip.dev{ background:linear-gradient(135deg,#3CE0A0,#0E9D68); color:#fff; }
+  .chip.par{ background:linear-gradient(135deg,#FDC856,#DB8B0B); color:#fff; }
+  .chip.active{ background:linear-gradient(135deg,#3CE0A0,#0E9D68); color:#fff; }
+  .chip.notice{ background:linear-gradient(135deg,#FDC856,#DB8B0B); color:#fff; }
+  .chip.vacated{ background:#E2E8F0; color:#64748B; }
   .list-card-amt{ font-size:17px; font-weight:800; margin-top:9px; font-variant-numeric:tabular-nums; }
   .list-card-due{ font-size:12.5px; margin-top:3px; color:var(--ink-soft); font-weight:600; }
   .list-card-due.overdue{ color:var(--negative); font-weight:700; }
@@ -336,13 +341,15 @@
 
   /* Room cards */
   .room-card{
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);
-    padding:15px 16px; margin-bottom:10px; box-shadow:var(--shadow-xs);
+    background:linear-gradient(165deg, #FFFFFF, var(--surface-2)); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:16px 16px 15px; margin-bottom:10px; box-shadow:var(--shadow-sm);
+    border-top:3px solid var(--primary-light);
   }
+  .room-card.vacant-card{ border-top-color:#CBD5D1; }
   .room-card-top{ display:flex; justify-content:space-between; align-items:center; }
   .room-name{ font-size:15px; font-weight:700; }
   .room-occ{
-    font-size:11.5px; color:var(--primary); font-weight:800; background:var(--primary-tint);
+    font-size:11.5px; color:#fff; font-weight:800; background:linear-gradient(135deg,var(--primary-light),var(--primary-dark));
     padding:4px 10px; border-radius:20px;
   }
   .room-tenant-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
@@ -350,9 +357,9 @@
     font-size:12px; font-weight:700; padding:5px 11px; border-radius:20px;
     background:var(--bg); border:1px solid var(--border); color:var(--ink);
   }
-  .tenant-pill.notice{ background:var(--notice-tint); color:var(--notice); border-color:transparent; }
+  .tenant-pill.notice{ background:linear-gradient(135deg,#FDC856,#DB8B0B); color:#fff; border-color:transparent; }
   .tenant-pill.vacated{ background:#F1F1F1; color:#999; border-color:transparent; }
-  .tenant-pill.hotel{ background:var(--purple-tint); color:var(--purple); border-color:transparent; }
+  .tenant-pill.hotel{ background:linear-gradient(135deg,#B294FA,#7C3AED); color:#fff; border-color:transparent; }
 
   /* Floating add button */
   .fab{
@@ -386,7 +393,8 @@
   }
   .tab-indicator{
     position:absolute; top:6px; bottom:6px; left:0; width:0;
-    background:var(--primary-tint); border-radius:14px;
+    background:linear-gradient(135deg, var(--primary-tint), #C3F0DF); border-radius:14px;
+    box-shadow:inset 0 0 0 1px rgba(14,124,102,.15);
     transition:transform .34s var(--ease-spring), width .34s var(--ease-spring);
     z-index:0;
   }
@@ -591,17 +599,17 @@
     overflow-y:auto;
   }
   .lock-logo{
-    width:86px;
-    height:86px;
+    width:96px;
+    height:96px;
     border-radius:26px;
     display:flex;
     align-items:center;
     justify-content:center;
-    background:linear-gradient(160deg, var(--primary-light), var(--primary-dark));
+    overflow:hidden;
     box-shadow:var(--shadow-hero);
     animation:popIn .45s var(--ease-spring);
   }
-  .lock-logo svg{ width:44px; height:44px; }
+  .lock-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
   .lock-title{
     margin:18px 0 2px;
     font-size:24px;
@@ -679,19 +687,36 @@
     color:var(--primary);
   }
   .key.ghost:active{ background:transparent; }
+
+  /* ===== Modern 3D polish additions ===== */
+  .stat-card{ position:relative; overflow:hidden; transition:transform .15s var(--ease-smooth), box-shadow .15s var(--ease-smooth); cursor:pointer; }
+  .stat-card:active{ transform:scale(.96) translateY(1px); }
+  .stat-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,0) 40%); pointer-events:none; }
+  .room-card{ transition:transform .18s var(--ease-smooth), box-shadow .18s var(--ease-smooth); position:relative; }
+  .room-card:hover{ transform:translateY(-3px); box-shadow:var(--shadow-md); }
+  .btn.submit:disabled, .mini-btn.primary:disabled{ opacity:.55; cursor:not-allowed; transform:none !important; }
+  .mini-btn{ transition:transform .12s var(--ease-smooth); }
+  .mini-btn:active{ transform:scale(.94); }
+  .floor-section-title{ font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--primary); margin:18px 0 8px; }
+  .room-card.vacant-card{ background:linear-gradient(160deg, var(--surface), var(--surface-2)); border:1px dashed var(--border); }
+  .expense-analysis-card{ background:linear-gradient(160deg, var(--surface), var(--surface-2)); border-radius:var(--radius-lg); padding:16px; box-shadow:var(--shadow-sm); margin-bottom:14px; }
+  .kitchen-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+  .kitchen-row:last-child{ border-bottom:none; }
+  .room-card-menu{ position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%; border:none; background:var(--surface-2); color:var(--ink-soft); font-weight:800; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .room-card-menu:active{ transform:scale(.9); background:var(--primary-tint); }
+  .stat-list-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+  .stat-list-row:last-child{ border-bottom:none; }
+  .stat-list-name{ font-weight:700; font-size:14px; color:var(--ink); }
+  .stat-list-meta{ font-size:12px; color:var(--ink-soft); }
 </style>
 </head>
 <body class="locked">
 <div class="lock" id="lockScreen">
   <div class="lock-logo">
-    <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 10.5 12 3l9 7.5"/>
-      <path d="M5.5 9.8V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.8"/>
-      <path d="M9.5 21v-6h5v6"/>
-    </svg>
+    <img src="icon-512.png" alt="Cozy Stays PG">
   </div>
   <!-- ★ EDIT #7 (optional) — app name shown on the lock screen -->
-  <h1 class="lock-title">Welcome to Cozy Stays</h1>
+  <h1 class="lock-title">Cozy Stays PG</h1>
   <p class="lock-sub">Enter your 6-digit PIN to continue</p>
   <div class="pin-dots" id="pinDots"></div>
   <p class="pin-err" id="pinErr"></p>
@@ -702,7 +727,7 @@
   <aside class="sidebar">
     <header class="topbar">
       <!-- ★ EDIT #8 (optional) — title shown at the top of the app -->
-      <p class="topbar-title">Cozy Properties</p>
+      <p class="topbar-title">Cozy Stays PG</p>
       <div class="property-filter" id="propertyFilter"></div>
     </header>
     <div class="tabbar-wrap">
@@ -810,7 +835,7 @@ function statusChipClass(status) {
   return "active";
 }
 function uid() { return Math.random().toString(36).slice(2); }
-const AVATAR_COLORS = ["#22965F", "#D6952A", "#3179C6", "#8A5CC7", "#E1483F", "#1F5C4F", "#0E8A82"];
+const AVATAR_COLORS = ["#0E9D68", "#DB8B0B", "#2A5FD1", "#7C3AED", "#DC2645", "#0A9B8F", "#E0629A"];
 function avatarColor(name) {
   let hash = 0;
   const str = String(name || "?");
@@ -947,6 +972,7 @@ const ICONS = {
   home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>`,
   tenants: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c.6-3.6 3.2-6 6.5-6s5.9 2.4 6.5 6"/><circle cx="17" cy="8.5" r="2.6"/><path d="M16 14.2c2.6.4 4.5 2.4 5 5.8"/></svg>`,
   rooms: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="1.5"/><path d="M3.5 10h17"/><path d="M9 4v6"/></svg>`,
+  hotel: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20v-9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9"/><path d="M3 20h18M7 9V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v4"/></svg>`,
   expense: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h6M9 16h6"/></svg>`,
   trends: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><rect x="5" y="12" width="3" height="8"/><rect x="10.5" y="7" width="3" height="13"/><rect x="16" y="4" width="3" height="16"/></svg>`
 };
@@ -962,7 +988,7 @@ const STAT_ICONS = {
 };
 function renderTabbar() {
   const el = document.getElementById("tabbar");
-  const tabs = [["home", "Home"], ["tenants", "Tenants"], ["rooms", "Rooms"], ["expense", "Expense"], ["trends", "Trends"]];
+  const tabs = [["home", "Home"], ["tenants", "Tenants"], ["rooms", "Rooms"], ["hotel", "Hotel"], ["expense", "Expense"], ["trends", "Trends"]];
   el.innerHTML = `<div class="tab-indicator" id="tabIndicator"></div>` + tabs.map(([id, label]) =>
     `<button class="tab-btn ${state.tab === id ? "active" : ""}" data-tab="${id}">${ICONS[id]}<span>${label}</span></button>`
   ).join("");
@@ -973,6 +999,66 @@ function renderTabbar() {
 }
 
 /* ============================================================ HOME */
+function openStatListModal(kind) {
+  const dues = filtered(state.data.dues);
+  const payments = filtered(state.data.payments);
+  const bookings = filtered(state.data.bookings);
+
+  const configs = {
+    billed: {
+      title: "Total rent billed",
+      rows: dues.map(d => ({ name: d.TenantName, meta: `${d.Property} · Room ${d.RoomNumber || "—"} · ${periodLabel(d.Period)}`, amount: Number(d.AmountDue || 0) }))
+    },
+    received: {
+      title: "Rent received",
+      rows: payments.map(p => ({ name: p.TenantName || "Payment", meta: `${p.Property} · ${p.PaymentMode} · ${fmtDate(p.Date)}`, amount: Number(p.Amount || 0) }))
+    },
+    due: {
+      title: "Rent due",
+      rows: dues.filter(d => dueBalance(d) > 0.5).map(d => ({ name: d.TenantName, meta: `${d.Property} · Room ${d.RoomNumber || "—"} · ${periodLabel(d.Period)}`, amount: dueBalance(d) }))
+    },
+    writeoff: {
+      title: "Write-off",
+      rows: dues.filter(d => Number(d.Discount || 0) > 0).map(d => ({ name: d.TenantName, meta: `${d.Property} · Room ${d.RoomNumber || "—"} · ${periodLabel(d.Period)}`, amount: Number(d.Discount || 0) }))
+    },
+    hotelIncome: {
+      title: "Hotel income",
+      rows: bookings.filter(b => Number(b.AmountPaid || 0) > 0).map(b => ({ name: b.GuestName, meta: `${b.Property} · Room ${b.RoomNumber} · ${fmtDate(b.CheckInDate)}`, amount: Number(b.AmountPaid || 0) }))
+    },
+    guests: {
+      title: "Guests checked in",
+      rows: bookings.filter(b => b.Status === "Active").map(b => ({ name: b.GuestName, meta: `${b.Property} · Room ${b.RoomNumber} · since ${fmtDate(b.CheckInDate)}`, amount: bookingBalance(b) > 0 ? bookingBalance(b) : null }))
+    }
+  };
+
+  const cfg = configs[kind];
+  if (!cfg) return;
+  const rows = cfg.rows.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+  openModal(`
+    <p class="modal-title">${cfg.title}</p>
+    <div class="list-card" style="max-height:60vh;overflow-y:auto;">
+      ${rows.length ? rows.map(r => `
+        <div class="stat-list-row">
+          <div>
+            <div class="stat-list-name">${r.name}</div>
+            <div class="stat-list-meta">${r.meta}</div>
+          </div>
+          ${r.amount != null ? `<span class="activity-amt minus">${rupee(r.amount)}</span>` : ""}
+        </div>
+      `).join("") : `<p class="empty-state">Nothing here yet.</p>`}
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn cancel" onclick="closeModal()">Close</button>
+    </div>
+  `);
+}
+
+function bindHomeActions() {
+  document.querySelectorAll('[data-stat]').forEach(card => {
+    card.addEventListener("click", () => openStatListModal(card.dataset.stat));
+  });
+}
+
 function renderHome() {
   const dues = filtered(state.data.dues);
   const payments = filtered(state.data.payments);
@@ -1030,16 +1116,16 @@ function renderHome() {
     </div>
 
     <div class="stat-grid-2">
-      <div class="stat-card"><div class="stat-icon blue">${STAT_ICONS.receipt}</div><p class="label">Total rent billed</p><p class="value">${rupee(totalRent)}</p></div>
-      <div class="stat-card"><div class="stat-icon green">${STAT_ICONS.check}</div><p class="label">Rent received</p><p class="value">${rupee(rentReceived)}</p></div>
-      <div class="stat-card"><div class="stat-icon red">${STAT_ICONS.clock}</div><p class="label">Rent due</p><p class="value warn">${rupee(rentDue)}</p></div>
-      <div class="stat-card"><div class="stat-icon purple">${STAT_ICONS.percent}</div><p class="label">Write-off</p><p class="value info">${rupee(writeOff)}</p></div>
+      <div class="stat-card" data-stat="billed"><div class="stat-icon blue">${STAT_ICONS.receipt}</div><p class="label">Total rent billed</p><p class="value">${rupee(totalRent)}</p></div>
+      <div class="stat-card" data-stat="received"><div class="stat-icon green">${STAT_ICONS.check}</div><p class="label">Rent received</p><p class="value">${rupee(rentReceived)}</p></div>
+      <div class="stat-card" data-stat="due"><div class="stat-icon red">${STAT_ICONS.clock}</div><p class="label">Rent due</p><p class="value warn">${rupee(rentDue)}</p></div>
+      <div class="stat-card" data-stat="writeoff"><div class="stat-icon purple">${STAT_ICONS.percent}</div><p class="label">Write-off</p><p class="value info">${rupee(writeOff)}</p></div>
     </div>
 
     <p class="section-title">Hotel bookings</p>
     <div class="stat-grid-2">
-      <div class="stat-card"><div class="stat-icon purple">${STAT_ICONS.bed}</div><p class="label">Hotel income</p><p class="value">${rupee(hotelIncome)}</p></div>
-      <div class="stat-card"><div class="stat-icon amber">${STAT_ICONS.user}</div><p class="label">Guests checked in</p><p class="value">${activeGuests}</p></div>
+      <div class="stat-card" data-stat="hotelIncome"><div class="stat-icon purple">${STAT_ICONS.bed}</div><p class="label">Hotel income</p><p class="value">${rupee(hotelIncome)}</p></div>
+      <div class="stat-card" data-stat="guests"><div class="stat-icon amber">${STAT_ICONS.user}</div><p class="label">Guests checked in</p><p class="value">${activeGuests}</p></div>
     </div>
 
     <p class="section-title">Cash in hand</p>
@@ -1157,6 +1243,16 @@ function bindTenantActions() {
 }
 
 /* ============================================================ ROOMS */
+function floorLabel(roomNumber) {
+  const digits = String(roomNumber).match(/\d+/);
+  if (!digits) return "Other";
+  const n = parseInt(digits[0], 10);
+  if (n < 100) return "Ground Floor";
+  const floor = Math.floor(n / 100);
+  const suffix = floor === 1 ? "st" : floor === 2 ? "nd" : floor === 3 ? "rd" : "th";
+  return floor + suffix + " Floor";
+}
+
 function renderRooms() {
   const rooms = filtered(state.data.rooms);
   const tenants = filtered(state.data.tenants);
@@ -1176,61 +1272,243 @@ function renderRooms() {
       <div class="stat-card"><div class="stat-icon amber">${STAT_ICONS.bell}</div><p class="label">On notice</p><p class="value amber">${notice}</p></div>
       <div class="stat-card"><div class="stat-icon blue">${STAT_ICONS.door}</div><p class="label">Vacant</p><p class="value">${vacant}</p></div>
     </div>
-    <p class="section-title">Room details</p>
   `;
 
   if (!rooms.length) return summary + `<div class="empty-state">No rooms added yet. Tap + to add one.</div>`;
 
-  const cards = `<div class="cards-grid">` + rooms.map(r => {
-    const inRoom = state.data.tenants.filter(t => t.RoomID === r.ID && t.Status !== "Vacated");
-    const occCount = inRoom.filter(t => t.Status === "Active").length + inRoom.filter(t => t.Status === "Notice").length;
-    const booking = inRoom.length ? null : activeBookingForRoom(r.ID);
+  // Group by Property, then by floor (derived from room number), sorted naturally.
+  const byProperty = {};
+  rooms.forEach(r => {
+    (byProperty[r.Property] = byProperty[r.Property] || []).push(r);
+  });
 
-    let statusBlock;
-    if (inRoom.length) {
-      statusBlock = `<div class="room-tenant-chips">${inRoom.map(t => `<span class="tenant-pill ${t.Status === "Notice" ? "notice" : ""}">${t.Name}${t.Status === "Notice" ? " · notice" : ""}</span>`).join("")}</div>`;
-    } else if (booking) {
-      const bal = bookingBalance(booking);
-      statusBlock = `
-        <div class="room-tenant-chips"><span class="tenant-pill hotel">🏨 ${booking.GuestName}</span></div>
-        <p class="list-card-due" style="margin-top:8px;">${fmtDate(booking.CheckInDate)} → ${fmtDate(booking.CheckOutDate)}${bal > 0 ? " · " + rupee(bal) + " due" : " · paid in full"}</p>
-        <div class="list-card-actions">
-          <button class="mini-btn primary" data-action="booking-pay" data-id="${booking.ID}" ${bal > 0 ? "" : "disabled"}>Record payment</button>
-          <button class="mini-btn icon" data-action="booking-manage" data-id="${booking.ID}">⋯</button>
-        </div>
-      `;
-    } else {
-      statusBlock = `
-        <div class="room-tenant-chips"><span class="tenant-pill vacated">Vacant</span></div>
-        <div class="list-card-actions">
-          <button class="mini-btn primary" data-action="book-room" data-id="${r.ID}">Book as hotel</button>
-        </div>
-      `;
-    }
+  let out = summary;
+  Object.keys(byProperty).sort().forEach(prop => {
+    const propRooms = byProperty[prop];
+    const byFloor = {};
+    propRooms.forEach(r => (byFloor[floorLabel(r.RoomNumber)] = byFloor[floorLabel(r.RoomNumber)] || []).push(r));
+    const floorOrder = Object.keys(byFloor).sort((a, b) => {
+      if (a === "Ground Floor") return -1;
+      if (b === "Ground Floor") return 1;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
 
-    return `
-      <div class="room-card">
-        <div class="room-card-top">
-          <span class="room-name">${r.Property} · Room ${r.RoomNumber}</span>
-          <span class="room-occ">${occCount || (booking ? 1 : 0)}/${r.Beds} beds</span>
-        </div>
-        ${statusBlock}
-      </div>
-    `;
-  }).join("") + `</div>`;
+    floorOrder.forEach(floor => {
+      const floorRooms = byFloor[floor].slice().sort((a, b) =>
+        String(a.RoomNumber).localeCompare(String(b.RoomNumber), undefined, { numeric: true })
+      );
+      out += `<p class="floor-section-title">${state.property === "All" ? prop + " · " : ""}${floor}</p>`;
+      out += `<div class="cards-grid">` + floorRooms.map(r => {
+        const inRoom = state.data.tenants.filter(t => t.RoomID === r.ID && t.Status !== "Vacated");
+        const occCount = inRoom.filter(t => t.Status === "Active").length + inRoom.filter(t => t.Status === "Notice").length;
+        const booking = inRoom.length ? null : activeBookingForRoom(r.ID);
 
-  return summary + cards;
+        let statusBlock;
+        if (inRoom.length) {
+          statusBlock = `<div class="room-tenant-chips">${inRoom.map(t => `<span class="tenant-pill ${t.Status === "Notice" ? "notice" : ""}">${t.Name}${t.Status === "Notice" ? " · notice" : ""}</span>`).join("")}</div>`;
+        } else if (booking) {
+          const bal = bookingBalance(booking);
+          statusBlock = `
+            <div class="room-tenant-chips"><span class="tenant-pill hotel">🏨 ${booking.GuestName}</span></div>
+            <p class="list-card-due" style="margin-top:8px;">${fmtDate(booking.CheckInDate)} → ${fmtDate(booking.CheckOutDate)}${bal > 0 ? " · " + rupee(bal) + " due" : " · paid in full"}</p>
+            <div class="list-card-actions">
+              <button class="mini-btn primary" data-action="booking-pay" data-id="${booking.ID}" ${bal > 0 ? "" : "disabled"}>Record payment</button>
+              <button class="mini-btn icon" data-action="booking-manage" data-id="${booking.ID}">⋯</button>
+            </div>
+          `;
+        } else {
+          statusBlock = `<div class="room-tenant-chips"><span class="tenant-pill vacated">Vacant</span></div>`;
+        }
+
+        return `
+          <div class="room-card ${(!inRoom.length && !booking) ? "vacant-card" : ""}">
+            <button class="room-card-menu" type="button" data-action="room-menu" data-id="${r.ID}" title="Room options">⋯</button>
+            <div class="room-card-top">
+              <span class="room-name">${r.Property} · Room ${r.RoomNumber}</span>
+              <span class="room-occ">${occCount || (booking ? 1 : 0)}/${r.Beds} beds</span>
+            </div>
+            ${statusBlock}
+          </div>
+        `;
+      }).join("") + `</div>`;
+    });
+  });
+
+  return out;
 }
 
 function bindRoomActions() {
-  document.querySelectorAll('[data-action="book-room"]').forEach(btn => {
-    btn.addEventListener("click", () => openBookRoomModal(state.data.rooms.find(r => r.ID === btn.dataset.id)));
+  document.querySelectorAll('[data-action="room-menu"]').forEach(btn => {
+    btn.addEventListener("click", () => openRoomManageSheet(state.data.rooms.find(r => r.ID === btn.dataset.id)));
   });
   document.querySelectorAll('[data-action="booking-pay"]').forEach(btn => {
     btn.addEventListener("click", () => openBookingPaymentModal(state.data.bookings.find(b => b.ID === btn.dataset.id)));
   });
   document.querySelectorAll('[data-action="booking-manage"]').forEach(btn => {
     btn.addEventListener("click", () => openBookingManageSheet(state.data.bookings.find(b => b.ID === btn.dataset.id)));
+  });
+}
+
+function openRoomManageSheet(room) {
+  if (!room) return;
+  const inRoom = state.data.tenants.filter(t => t.RoomID === room.ID && t.Status !== "Vacated");
+  const booking = inRoom.length ? null : activeBookingForRoom(room.ID);
+  const actions = [{ label: "Edit room", onClick: () => openEditRoomModal(room) }];
+  inRoom.forEach(t => {
+    actions.push({ label: "Edit tenant — " + t.Name, onClick: () => openEditTenantModal(t) });
+  });
+  if (!inRoom.length && !booking) {
+    actions.push({ label: "Book as hotel", onClick: () => openBookRoomModal(room) });
+  }
+  if (!inRoom.length && !booking) {
+    actions.push({ label: "Delete room", danger: true, onClick: () => confirmDeleteRoom(room) });
+  }
+  openActionSheet(`${room.Property} · Room ${room.RoomNumber}`, actions);
+}
+
+function openEditRoomModal(room) {
+  openModal(`
+    <p class="modal-title">Edit room — ${room.Property}</p>
+    <form id="editRoomForm">
+      <div class="field"><label>Room number / name</label><input name="RoomNumber" value="${room.RoomNumber}" required></div>
+      <div class="field"><label>Beds (capacity)</label><input name="Beds" type="number" min="1" value="${room.Beds}" required></div>
+      <p class="field-hint">Reducing beds below the number of current tenants won't remove anyone — it just blocks new check-ins until there's space.</p>
+      <p class="field-error" id="editRoomErr"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn submit">Save changes</button>
+      </div>
+    </form>
+  `);
+  guardedSubmit(document.getElementById("editRoomForm"), async e => {
+    const payload = Object.fromEntries(new FormData(e.target).entries());
+    const dup = state.data.rooms.some(r =>
+      r.ID !== room.ID && r.Property === room.Property &&
+      String(r.RoomNumber).trim().toLowerCase() === String(payload.RoomNumber).trim().toLowerCase()
+    );
+    if (dup) {
+      document.getElementById("editRoomErr").textContent = "Room " + payload.RoomNumber + " already exists in " + room.Property + ".";
+      document.getElementById("editRoomErr").style.display = "block";
+      return;
+    }
+    payload.ID = room.ID;
+    try {
+      await apiPost("updateRoom", payload);
+      closeModal(); toast("Room updated"); await loadData();
+    } catch (err) {
+      document.getElementById("editRoomErr").textContent = err.message;
+      document.getElementById("editRoomErr").style.display = "block";
+    }
+  });
+}
+
+function confirmDeleteRoom(room) {
+  openModal(`
+    <p class="modal-title">Delete Room ${room.RoomNumber}?</p>
+    <p class="modal-subtitle">This only works for empty, unbooked rooms. This can't be undone.</p>
+    <div class="modal-actions">
+      <button class="btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn danger" id="confirmDeleteRoomBtn">Delete</button>
+    </div>
+  `);
+  document.getElementById("confirmDeleteRoomBtn").addEventListener("click", async () => {
+    try {
+      await apiPost("deleteRoom", { id: room.ID });
+      closeModal(); toast("Room deleted"); await loadData();
+    } catch (err) { toast("Couldn't delete: " + err.message); }
+  });
+}
+
+/* ============================================================ HOTEL TAB */
+function vacantRoomsList() {
+  const rooms = filtered(state.data.rooms);
+  return rooms.filter(r => {
+    const inRoom = state.data.tenants.some(t => t.RoomID === r.ID && t.Status !== "Vacated");
+    if (inRoom) return false;
+    return !activeBookingForRoom(r.ID);
+  });
+}
+
+function renderHotel() {
+  const bookings = filtered(state.data.bookings).slice().sort((a, b) => new Date(b.CheckInDate) - new Date(a.CheckInDate));
+  const active = bookings.filter(b => b.Status === "Active");
+  const history = bookings.filter(b => b.Status !== "Active");
+  const thisMonthKey = monthKey(new Date());
+  const incomeThisMonth = bookings.filter(b => monthKeyOfDate(b.CheckInDate) === thisMonthKey).reduce((s, b) => s + Number(b.AmountPaid || 0), 0);
+
+  const summary = `
+    <div class="stat-grid-2">
+      <div class="stat-card"><div class="stat-icon purple">${STAT_ICONS.bed}</div><p class="label">Guests checked in</p><p class="value">${active.length}</p></div>
+      <div class="stat-card"><div class="stat-icon green">${STAT_ICONS.receipt}</div><p class="label">Income this month</p><p class="value">${rupee(incomeThisMonth)}</p></div>
+    </div>
+  `;
+
+  const activeList = `
+    <p class="section-title">Active guests<span class="count">${active.length}</span></p>
+    <div class="cards-grid">
+      ${active.length ? active.map(b => {
+        const bal = bookingBalance(b);
+        return `
+          <div class="room-card">
+            <div class="room-card-top">
+              <span class="room-name">${b.Property} · Room ${b.RoomNumber}</span>
+              <span class="room-occ">${bal > 0 ? rupee(bal) + " due" : "Paid"}</span>
+            </div>
+            <div class="room-tenant-chips"><span class="tenant-pill hotel">🏨 ${b.GuestName}</span></div>
+            <p class="list-card-due" style="margin-top:8px;">${fmtDate(b.CheckInDate)} → ${fmtDate(b.CheckOutDate)}</p>
+            <div class="list-card-actions">
+              <button class="mini-btn primary" data-action="booking-pay" data-id="${b.ID}" ${bal > 0 ? "" : "disabled"}>Record payment</button>
+              <button class="mini-btn icon" data-action="booking-manage" data-id="${b.ID}">⋯</button>
+            </div>
+          </div>
+        `;
+      }).join("") : `<div class="empty-state">No guests currently checked in.</div>`}
+    </div>
+  `;
+
+  const historyList = `
+    <p class="section-title">Booking history<span class="count">${history.length}</span></p>
+    <div class="list-card">
+      ${history.length ? history.slice(0, 30).map(b => `
+        <div class="activity-row">
+          <div class="activity-left">
+            ${avatarChip(b.GuestName, "sm")}
+            <div class="activity-main">
+              <span class="activity-title">${b.GuestName}</span>
+              <span class="activity-meta">${b.Property} · Room ${b.RoomNumber} · ${b.Status}</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="activity-amt plus">${rupee(b.AmountPaid)}</div>
+            <div class="activity-meta">${fmtDate(b.CheckInDate)} → ${fmtDate(b.CheckOutDate)}</div>
+          </div>
+        </div>
+      `).join("") : `<p class="empty-state">No past bookings yet.</p>`}
+    </div>
+  `;
+
+  return summary + activeList + historyList;
+}
+
+function openBookRoomPicker() {
+  const rooms = vacantRoomsList();
+  if (!rooms.length) { toast("No vacant rooms available right now."); return; }
+  openModal(`
+    <p class="modal-title">Book as hotel</p>
+    <form id="pickRoomForm">
+      <div class="field"><label>Choose a vacant room</label>
+        <select name="roomId">${rooms.map(r => `<option value="${r.ID}">${r.Property} · Room ${r.RoomNumber}</option>`).join("")}</select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn submit">Next</button>
+      </div>
+    </form>
+  `);
+  document.getElementById("pickRoomForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const roomId = new FormData(e.target).get("roomId");
+    openBookRoomModal(state.data.rooms.find(r => r.ID === roomId));
   });
 }
 
@@ -1405,11 +1683,88 @@ function renderTrends() {
 }
 
 /* ============================================================ EXPENSE */
+const KITCHEN_CATEGORIES = ["Ration", "Vegetables", "Gas", "Dal Masala"];
+
+function expenseAnalytics() {
+  const expenses = filtered(state.data.expense);
+  const tenants = filtered(state.data.tenants);
+  const curKey = monthKey(new Date());
+  const prevKey = monthKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
+
+  const byCat = key => {
+    const totals = {};
+    expenses.filter(e => monthKeyOfDate(e.Date) === key).forEach(e => {
+      const cat = e.Category || "Other";
+      totals[cat] = (totals[cat] || 0) + Number(e.Amount || 0);
+    });
+    return totals;
+  };
+  const curCat = byCat(curKey), prevCat = byCat(prevKey);
+  const allCats = Array.from(new Set([...Object.keys(curCat), ...Object.keys(prevCat)]));
+  const deltas = allCats.map(c => ({ cat: c, cur: curCat[c] || 0, prev: prevCat[c] || 0, delta: (curCat[c] || 0) - (prevCat[c] || 0) }))
+    .sort((a, b) => b.delta - a.delta);
+  const rising = deltas.filter(d => d.delta > 0).slice(0, 3);
+  const falling = deltas.filter(d => d.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 3);
+
+  const curTotal = Object.values(curCat).reduce((s, v) => s + v, 0);
+  const prevTotal = Object.values(prevCat).reduce((s, v) => s + v, 0);
+
+  // Kitchen spend per person, per property, this month vs last month.
+  const properties = Array.from(new Set(state.data.rooms.map(r => r.Property).concat(CONFIG.PROPERTIES)));
+  const kitchenPerProperty = properties.map(prop => {
+    const kitchenCur = expenses.filter(e => monthKeyOfDate(e.Date) === curKey && e.Property === prop && KITCHEN_CATEGORIES.includes(e.Category))
+      .reduce((s, e) => s + Number(e.Amount || 0), 0);
+    const kitchenPrev = expenses.filter(e => monthKeyOfDate(e.Date) === prevKey && e.Property === prop && KITCHEN_CATEGORIES.includes(e.Category))
+      .reduce((s, e) => s + Number(e.Amount || 0), 0);
+    const activeCount = tenants.filter(t => t.Property === prop && (t.Status === "Active" || t.Status === "Notice")).length;
+    return { prop, kitchenCur, kitchenPrev, activeCount, perPersonCur: activeCount ? kitchenCur / activeCount : 0, perPersonPrev: activeCount ? kitchenPrev / activeCount : 0 };
+  }).filter(x => x.kitchenCur > 0 || x.kitchenPrev > 0 || x.activeCount > 0);
+
+  return { curKey, prevKey, curTotal, prevTotal, rising, falling, kitchenPerProperty };
+}
+
 function renderExpense() {
   const expenses = filtered(state.data.expense).slice().sort((a, b) => new Date(b.Date) - new Date(a.Date));
-  if (!expenses.length) return `<div class="empty-state">No expenses logged yet. Tap + to add one.</div>`;
-  return `<div class="list-card">` + expenses.map(e => `
-    <div class="activity-row">
+  const a = expenseAnalytics();
+  const totalDelta = a.curTotal - a.prevTotal;
+
+  const analysis = `
+    <div class="expense-analysis-card">
+      <p class="section-title" style="margin-top:0;">This month vs last month</p>
+      <div class="stat-list-row">
+        <span class="stat-list-name">${periodLabel(a.curKey)}</span>
+        <span class="stat-list-name">${rupee(a.curTotal)}</span>
+      </div>
+      <div class="stat-list-row">
+        <span class="stat-list-meta">${periodLabel(a.prevKey)}</span>
+        <span class="activity-amt ${totalDelta > 0 ? "delta-up" : totalDelta < 0 ? "delta-down" : "delta-flat"}">${totalDelta > 0 ? "▲" : totalDelta < 0 ? "▼" : "—"} ${rupee(Math.abs(totalDelta))}</span>
+      </div>
+      ${a.rising.length ? `<p class="field-hint" style="margin-top:10px;">Rising: ${a.rising.map(r => r.cat + " (+" + rupee(r.delta) + ")").join(", ")}</p>` : ""}
+      ${a.falling.length ? `<p class="field-hint">Falling: ${a.falling.map(r => r.cat + " (-" + rupee(Math.abs(r.delta)) + ")").join(", ")}</p>` : ""}
+      ${(!a.rising.length && !a.falling.length) ? `<p class="field-hint" style="margin-top:10px;">Not enough data yet to compare categories month to month.</p>` : ""}
+    </div>
+    ${a.kitchenPerProperty.length ? `
+    <div class="expense-analysis-card">
+      <p class="section-title" style="margin-top:0;">Kitchen spend per person<span class="count">Ration, Vegetables, Gas, Dal Masala</span></p>
+      ${a.kitchenPerProperty.map(k => {
+        const d = k.perPersonCur - k.perPersonPrev;
+        return `
+          <div class="kitchen-row">
+            <span>${k.prop}${k.activeCount ? " · " + k.activeCount + " tenants" : " · no active tenants"}</span>
+            <span>
+              ${k.activeCount ? rupee(Math.round(k.perPersonCur)) + "/person" : rupee(k.kitchenCur) + " total"}
+              ${k.perPersonPrev ? `<span class="${d > 0 ? "delta-up" : d < 0 ? "delta-down" : "delta-flat"}" style="margin-left:6px;font-size:12px;">${d > 0 ? "▲" : d < 0 ? "▼" : "—"}${rupee(Math.abs(Math.round(d)))}</span>` : ""}
+            </span>
+          </div>
+        `;
+      }).join("")}
+    </div>` : ""}
+  `;
+
+  if (!expenses.length) return analysis + `<div class="empty-state">No expenses logged yet. Tap + to add one.</div>`;
+
+  const list = `<div class="list-card">` + expenses.map(e => `
+    <div class="activity-row" data-action="expense-manage" data-id="${e.ID}" style="cursor:pointer;">
       <div class="activity-left">
         ${avatarChip(e.Category || "Expense", "sm")}
         <div class="activity-main">
@@ -1423,6 +1778,75 @@ function renderExpense() {
       </div>
     </div>
   `).join("") + `</div>`;
+
+  return analysis + list;
+}
+
+function bindExpenseActions() {
+  document.querySelectorAll('[data-action="expense-manage"]').forEach(row => {
+    row.addEventListener("click", () => openExpenseManageSheet(state.data.expense.find(x => x.ID === row.dataset.id)));
+  });
+}
+
+function openExpenseManageSheet(expense) {
+  if (!expense) return;
+  openActionSheet(`${expense.Category} · ${rupee(expense.Amount)}`, [
+    { label: "Edit expense", onClick: () => openEditExpenseModal(expense) },
+    { label: "Delete expense", danger: true, onClick: () => confirmDeleteExpense(expense) }
+  ]);
+}
+
+function openEditExpenseModal(expense) {
+  openModal(`
+    <p class="modal-title">Edit expense</p>
+    <form id="editExpenseForm">
+      <div class="field"><label>Property</label>
+        <select name="Property">${CONFIG.PROPERTIES.map(p => `<option value="${p}" ${p === expense.Property ? "selected" : ""}>${p}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Category</label>
+        <select name="Category">${categoryOptions().map(c => `<option value="${c}" ${c === expense.Category ? "selected" : ""}>${c}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Amount (₹)</label><input name="Amount" type="number" min="0" value="${expense.Amount}" required></div>
+      <div class="field"><label>Date</label><input name="Date" type="date" value="${String(expense.Date).slice(0,10)}" required></div>
+      <div class="field"><label>Paid by</label>
+        <select name="PaidBy">${Object.keys(CONFIG.PEOPLE).map(p => `<option value="${p}" ${p === expense.PaidBy ? "selected" : ""}>${p}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Notes (optional)</label><textarea name="Notes">${expense.Notes || ""}</textarea></div>
+      <p class="field-error" id="editExpenseErr"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn submit">Save changes</button>
+      </div>
+    </form>
+  `);
+  guardedSubmit(document.getElementById("editExpenseForm"), async e => {
+    const payload = Object.fromEntries(new FormData(e.target).entries());
+    payload.ID = expense.ID;
+    try {
+      await apiPost("updateExpense", payload);
+      closeModal(); toast("Expense updated"); await loadData();
+    } catch (err) {
+      document.getElementById("editExpenseErr").textContent = err.message;
+      document.getElementById("editExpenseErr").style.display = "block";
+    }
+  });
+}
+
+function confirmDeleteExpense(expense) {
+  openModal(`
+    <p class="modal-title">Delete this expense?</p>
+    <p class="modal-subtitle">${expense.Category} · ${rupee(expense.Amount)} on ${fmtDate(expense.Date)}. This can't be undone.</p>
+    <div class="modal-actions">
+      <button class="btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn danger" id="confirmDeleteExpenseBtn">Delete</button>
+    </div>
+  `);
+  document.getElementById("confirmDeleteExpenseBtn").addEventListener("click", async () => {
+    try {
+      await apiPost("deleteRow", { sheet: "Expense", id: expense.ID });
+      closeModal(); toast("Expense deleted"); await loadData();
+    } catch (err) { toast("Couldn't delete: " + err.message); }
+  });
 }
 
 /* ============================================================ MAIN RENDER */
@@ -1462,16 +1886,32 @@ function render() {
     fab.onclick = onclick;
   };
 
-  if (state.tab === "home") { content.innerHTML = renderHome(); fab.style.display = "none"; }
+  if (state.tab === "home") { content.innerHTML = renderHome(); fab.style.display = "none"; bindHomeActions(); }
   if (state.tab === "tenants") { content.innerHTML = renderTenants(); showFab(openAddTenantModal); bindTenantActions(); }
   if (state.tab === "rooms") { content.innerHTML = renderRooms(); showFab(openAddRoomModal); bindRoomActions(); }
-  if (state.tab === "expense") { content.innerHTML = renderExpense(); showFab(openAddExpenseModal); }
+  if (state.tab === "hotel") { content.innerHTML = renderHotel(); showFab(openBookRoomPicker); bindRoomActions(); }
+  if (state.tab === "expense") { content.innerHTML = renderExpense(); showFab(openAddExpenseModal); bindExpenseActions(); }
   if (state.tab === "trends") { content.innerHTML = renderTrends(); fab.style.display = "none"; }
   triggerFade(content);
 }
 
 /* ============================================================ MODAL SHELL */
 function closeModal() { document.getElementById("modalRoot").innerHTML = ""; }
+function guardedSubmit(form, handler) {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    if (!btn || btn.disabled) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Please wait…";
+    try {
+      await handler(e);
+    } finally {
+      if (document.body.contains(btn)) { btn.disabled = false; btn.textContent = original; }
+    }
+  });
+}
 function openModal(html) {
   document.getElementById("modalRoot").innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal-sheet"><div class="modal-handle"></div>${html}</div></div>`;
   document.getElementById("modalOverlay").addEventListener("click", e => { if (e.target.id === "modalOverlay") closeModal(); });
@@ -1506,9 +1946,17 @@ function openAddRoomModal() {
       </div>
     </form>
   `);
-  document.getElementById("roomForm").addEventListener("submit", async e => {
-    e.preventDefault();
+  guardedSubmit(document.getElementById("roomForm"), async e => {
     const payload = Object.fromEntries(new FormData(e.target).entries());
+    const dup = state.data.rooms.some(r =>
+      r.Property === payload.Property &&
+      String(r.RoomNumber).trim().toLowerCase() === String(payload.RoomNumber).trim().toLowerCase()
+    );
+    if (dup) {
+      document.getElementById("roomErr").textContent = "Room " + payload.RoomNumber + " already exists in " + payload.Property + ".";
+      document.getElementById("roomErr").style.display = "block";
+      return;
+    }
     try {
       await apiPost("addRoom", payload);
       closeModal(); toast("Room added"); await loadData();
@@ -1562,7 +2010,7 @@ function openBookRoomModal(room) {
   ["bkCheckIn", "bkCheckOut", "bkRate"].forEach(id => document.getElementById(id).addEventListener("input", updateNights));
   updateNights();
 
-  document.getElementById("bookingForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("bookingForm"), async e => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
     payload.Property = room.Property;
@@ -1610,7 +2058,7 @@ function openBookingPaymentModal(booking) {
       </div>
     </form>
   `);
-  document.getElementById("bkPayForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("bkPayForm"), async e => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
     payload.id = booking.ID;
@@ -1663,7 +2111,10 @@ function confirmCancelBooking(booking) {
 function roomOptionsFor(property, selectedRoomId) {
   const rooms = state.data.rooms.filter(r => r.Property === property);
   if (!rooms.length) return `<option value="">No rooms yet — add one on the Rooms tab</option>`;
-  return rooms.map(r => `<option value="${r.ID}" data-roomnumber="${r.RoomNumber}" ${r.ID === selectedRoomId ? "selected" : ""}>Room ${r.RoomNumber} (${r.Beds} beds)</option>`).join("");
+  return rooms.map(r => {
+    const occ = state.data.tenants.filter(t => t.RoomID === r.ID && t.Status !== "Vacated").length;
+    return `<option value="${r.ID}" data-roomnumber="${r.RoomNumber}" data-beds="${r.Beds}" data-occupied="${occ}" ${r.ID === selectedRoomId ? "selected" : ""}>Room ${r.RoomNumber} (${occ}/${r.Beds} beds)</option>`;
+  }).join("");
 }
 
 function tenantFormFields(t) {
@@ -1704,12 +2155,22 @@ function openAddTenantModal() {
     </form>
   `);
   bindRoomDependency();
-  document.getElementById("tenantForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("tenantForm"), async e => {
     e.preventDefault();
     const f = new FormData(e.target);
     const payload = Object.fromEntries(f.entries());
     const roomSel = document.getElementById("tenantRoomSelect");
-    payload.RoomNumber = roomSel.selectedOptions[0] ? roomSel.selectedOptions[0].dataset.roomnumber || "" : "";
+    const roomOpt = roomSel.selectedOptions[0];
+    payload.RoomNumber = roomOpt ? roomOpt.dataset.roomnumber || "" : "";
+    if (roomOpt && roomOpt.dataset.beds) {
+      const beds = Number(roomOpt.dataset.beds);
+      const occ = Number(roomOpt.dataset.occupied || 0);
+      if (occ >= beds) {
+        document.getElementById("tenantErr").textContent = `Room ${payload.RoomNumber} is full (${occ}/${beds} beds). Edit the room to add more beds first.`;
+        document.getElementById("tenantErr").style.display = "block";
+        return;
+      }
+    }
     try {
       await apiPost("addTenant", payload);
       closeModal(); toast("Tenant added"); await loadData();
@@ -1733,12 +2194,22 @@ function openEditTenantModal(tenant) {
     </form>
   `);
   bindRoomDependency();
-  document.getElementById("tenantForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("tenantForm"), async e => {
     e.preventDefault();
     const f = new FormData(e.target);
     const payload = Object.fromEntries(f.entries());
     const roomSel = document.getElementById("tenantRoomSelect");
-    payload.RoomNumber = roomSel.selectedOptions[0] ? roomSel.selectedOptions[0].dataset.roomnumber || "" : "";
+    const roomOpt = roomSel.selectedOptions[0];
+    payload.RoomNumber = roomOpt ? roomOpt.dataset.roomnumber || "" : "";
+    if (roomOpt && roomOpt.value !== tenant.RoomID && roomOpt.dataset.beds) {
+      const beds = Number(roomOpt.dataset.beds);
+      const occ = Number(roomOpt.dataset.occupied || 0);
+      if (occ >= beds) {
+        document.getElementById("tenantErr").textContent = `Room ${payload.RoomNumber} is full (${occ}/${beds} beds). Edit the room to add more beds first.`;
+        document.getElementById("tenantErr").style.display = "block";
+        return;
+      }
+    }
     payload.ID = tenant.ID;
     delete payload.CheckInDate; // disabled field isn't submitted, but just in case
     try {
@@ -1811,7 +2282,7 @@ function openStartNoticeModal(t) {
       </div>
     </form>
   `);
-  document.getElementById("noticeForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("noticeForm"), async e => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
     payload.id = t.ID;
@@ -1845,7 +2316,7 @@ function openReturnDepositModal(t) {
       </div>
     </form>
   `);
-  document.getElementById("depositForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("depositForm"), async e => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
     payload.id = t.ID;
@@ -1896,7 +2367,7 @@ function openRecordPaymentModal(tenantId) {
     const bal = e.target.selectedOptions[0].dataset.balance;
     document.getElementById("amountInput").value = bal;
   });
-  document.getElementById("paymentForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("paymentForm"), async e => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
     payload.tenantId = tenantId;
@@ -1968,7 +2439,7 @@ function openAddExpenseModal() {
     catOtherField.style.display = isOther ? "block" : "none";
     catOtherInput.required = isOther;
   });
-  document.getElementById("expenseForm").addEventListener("submit", async e => {
+  guardedSubmit(document.getElementById("expenseForm"), async e => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
     payload.Category = (payload.CategorySelect === "__other__" ? payload.CategoryOther : payload.CategorySelect || "").trim();
