@@ -1,14 +1,30 @@
 {
-  "name": "Cozy Properties",
-  "short_name": "Cozy",
+  "name": "Cozy Stays PG",
+  "short_name": "Cozy Stays",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#EEF2EF",
-  "theme_color": "#1F5C4F",
+  "background_color": "#1349AF",
+  "theme_color": "#1349AF",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
