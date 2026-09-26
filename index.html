@@ -836,6 +836,68 @@ function filtered(list) {
   if (state.property === "All") return list;
   return list.filter(r => r.Property === state.property);
 }
+
+// Was this tenant present at ANY point during the given month — regardless
+// of their CURRENT status? Someone who moved out mid-month, or who checked
+// in partway through, still counted toward that month's headcount.
+function tenantOverlapsMonth(tenant, monthStart, monthEnd) {
+  const checkIn = new Date(tenant.CheckInDate);
+  if (isNaN(checkIn) || checkIn > monthEnd) return false;
+  if (tenant.MoveOutDate) {
+    const moveOut = new Date(tenant.MoveOutDate);
+    if (!isNaN(moveOut) && moveOut < monthStart) return false;
+  }
+  return true;
+}
+
+// Tenant headcount per property for one specific calendar month (accepts a
+// Date within that month, or a "YYYY-MM" key). Counts everyone who
+// overlapped that month at all — Active, Notice, or since-Vacated.
+function tenantCountsForMonth(monthKeyOrDate) {
+  const d = monthKeyOrDate instanceof Date ? monthKeyOrDate : new Date(monthKeyOrDate + "-01");
+  const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+  const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+  const counts = {};
+  CONFIG.PROPERTIES.forEach(p => counts[p] = 0);
+  state.data.tenants.forEach(t => {
+    if (tenantOverlapsMonth(t, monthStart, monthEnd)) {
+      counts[t.Property] = (counts[t.Property] || 0) + 1;
+    }
+  });
+  return counts;
+}
+
+function shareForProperty(prop, monthKeyOrDate) {
+  const counts = tenantCountsForMonth(monthKeyOrDate);
+  const total = Object.values(counts).reduce((s, v) => s + v, 0);
+  return total > 0 ? (counts[prop] || 0) / total : (1 / Math.max(1, CONFIG.PROPERTIES.length));
+}
+
+// Expenses logged as Property "Shared" (e.g. a kitchen run covering both
+// buildings) are split across properties by that EXPENSE'S OWN MONTH's
+// tenant headcount — not today's headcount — so someone who moved out
+// partway through the month still counts toward that month's split.
+// In the "All" view the full amount still counts once, undivided.
+function filteredExpense() {
+  const list = state.data.expense;
+  if (state.property === "All") return list;
+  return list.map(e => {
+    if (e.Property === state.property) return e;
+    if (e.Property === "Shared") {
+      const share = shareForProperty(state.property, new Date(e.Date));
+      const amount = Number(e.Amount || 0) * share;
+      if (amount <= 0) return null;
+      return Object.assign({}, e, {
+        Property: state.property,
+        Amount: amount,
+        _sharedSplit: true,
+        _shareRatio: share,
+        _sharedTotal: Number(e.Amount || 0)
+      });
+    }
+    return null;
+  }).filter(Boolean);
+}
 function statusChipClass(status) {
   if (status === "Notice") return "notice";
   if (status === "Vacated") return "vacated";
@@ -1268,7 +1330,7 @@ function openPaymentDetailModal(payment) {
 function renderHome() {
   const dues = filtered(state.data.dues);
   const payments = filtered(state.data.payments);
-  const expense = filtered(state.data.expense);
+  const expense = filteredExpense();
   const bookings = filtered(state.data.bookings);
 
   const totalRent = dues.reduce((s, d) => s + Number(d.AmountDue || 0), 0);
@@ -1754,7 +1816,7 @@ function buildLineChart(values) {
 function renderTrends() {
   const months = monthsBack(12);
   const payments = filtered(state.data.payments);
-  const expenses = filtered(state.data.expense);
+  const expenses = filteredExpense();
   const tenants = filtered(state.data.tenants);
   const rooms = filtered(state.data.rooms);
   const bookings = filtered(state.data.bookings);
@@ -1893,7 +1955,7 @@ function renderTrends() {
 const KITCHEN_CATEGORIES = ["Ration", "Vegetables", "Gas", "Dal Masala"];
 
 function expenseAnalytics() {
-  const expenses = filtered(state.data.expense);
+  const expenses = filteredExpense();
   const tenants = filtered(state.data.tenants);
   const curKey = monthKey(new Date());
   const prevKey = monthKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
@@ -1917,21 +1979,45 @@ function expenseAnalytics() {
   const prevTotal = Object.values(prevCat).reduce((s, v) => s + v, 0);
 
   // Kitchen spend per person, per property, this month vs last month.
+  // Computed from the raw, unfiltered expense/tenant lists (not the current
+  // property-filtered view) so this breakdown is always correct for BOTH
+  // properties at once, and so "Shared" kitchen expenses get split by each
+  // property's current tenant headcount ratio rather than by room count.
   const properties = Array.from(new Set(state.data.rooms.map(r => r.Property).concat(CONFIG.PROPERTIES)));
+  const kitchenAmountForProperty = (prop, key) => {
+    let sum = 0;
+    state.data.expense.forEach(e => {
+      if (monthKeyOfDate(e.Date) !== key || !KITCHEN_CATEGORIES.includes(e.Category)) return;
+      if (e.Property === prop) {
+        sum += Number(e.Amount || 0);
+      } else if (e.Property === "Shared") {
+        sum += Number(e.Amount || 0) * shareForProperty(prop, key);
+      }
+    });
+    return sum;
+  };
+  const curCounts = tenantCountsForMonth(curKey);
+  const prevCounts = tenantCountsForMonth(prevKey);
   const kitchenPerProperty = properties.map(prop => {
-    const kitchenCur = expenses.filter(e => monthKeyOfDate(e.Date) === curKey && e.Property === prop && KITCHEN_CATEGORIES.includes(e.Category))
-      .reduce((s, e) => s + Number(e.Amount || 0), 0);
-    const kitchenPrev = expenses.filter(e => monthKeyOfDate(e.Date) === prevKey && e.Property === prop && KITCHEN_CATEGORIES.includes(e.Category))
-      .reduce((s, e) => s + Number(e.Amount || 0), 0);
-    const activeCount = tenants.filter(t => t.Property === prop && (t.Status === "Active" || t.Status === "Notice")).length;
-    return { prop, kitchenCur, kitchenPrev, activeCount, perPersonCur: activeCount ? kitchenCur / activeCount : 0, perPersonPrev: activeCount ? kitchenPrev / activeCount : 0 };
+    const kitchenCur = kitchenAmountForProperty(prop, curKey);
+    const kitchenPrev = kitchenAmountForProperty(prop, prevKey);
+    const curHeadcount = curCounts[prop] || 0;
+    const prevHeadcount = prevCounts[prop] || 0;
+    // Shown as a label for context — how many are living there today,
+    // which can differ from that month's headcount used in the split above.
+    const activeCount = state.data.tenants.filter(t => t.Property === prop && (t.Status === "Active" || t.Status === "Notice")).length;
+    return {
+      prop, kitchenCur, kitchenPrev, activeCount,
+      perPersonCur: curHeadcount ? kitchenCur / curHeadcount : 0,
+      perPersonPrev: prevHeadcount ? kitchenPrev / prevHeadcount : 0
+    };
   }).filter(x => x.kitchenCur > 0 || x.kitchenPrev > 0 || x.activeCount > 0);
 
   return { curKey, prevKey, curTotal, prevTotal, rising, falling, kitchenPerProperty };
 }
 
 function renderExpense() {
-  const expenses = filtered(state.data.expense).slice().sort((a, b) => new Date(b.Date) - new Date(a.Date));
+  const expenses = filteredExpense().slice().sort((a, b) => new Date(b.Date) - new Date(a.Date));
   const a = expenseAnalytics();
   const totalDelta = a.curTotal - a.prevTotal;
 
@@ -1976,7 +2062,7 @@ function renderExpense() {
         ${avatarChip(e.Category || "Expense", "sm")}
         <div class="activity-main">
           <span class="activity-title">${e.Category || "Expense"}</span>
-          <span class="activity-meta">${e.Property} · ${fmtDate(e.Date)}${e.Notes ? " · " + e.Notes : ""}</span>
+          <span class="activity-meta">${e.Property}${e._sharedSplit ? ` · your share of ${rupee(e._sharedTotal)} shared` : ""} · ${fmtDate(e.Date)}${e.Notes ? " · " + e.Notes : ""}</span>
         </div>
       </div>
       <div style="text-align:right;">
@@ -2008,7 +2094,7 @@ function openEditExpenseModal(expense) {
     <p class="modal-title">Edit expense</p>
     <form id="editExpenseForm">
       <div class="field"><label>Property</label>
-        <select name="Property">${CONFIG.PROPERTIES.map(p => `<option value="${p}" ${p === expense.Property ? "selected" : ""}>${p}</option>`).join("")}</select>
+        <select name="Property">${CONFIG.PROPERTIES.map(p => `<option value="${p}" ${p === expense.Property ? "selected" : ""}>${p}</option>`).join("")}<option value="Shared" ${expense.Property === "Shared" ? "selected" : ""}>Shared (split by tenant count)</option></select>
       </div>
       <div class="field"><label>Category</label>
         <select name="Category">${categoryOptions().map(c => `<option value="${c}" ${c === expense.Category ? "selected" : ""}>${c}</option>`).join("")}</select>
@@ -2042,829 +2128,4 @@ function openEditExpenseModal(expense) {
 function confirmDeleteExpense(expense) {
   openModal(`
     <p class="modal-title">Delete this expense?</p>
-    <p class="modal-subtitle">${expense.Category} · ${rupee(expense.Amount)} on ${fmtDate(expense.Date)}. This can't be undone.</p>
-    <div class="modal-actions">
-      <button class="btn cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn danger" id="confirmDeleteExpenseBtn">Delete</button>
-    </div>
-  `);
-  document.getElementById("confirmDeleteExpenseBtn").addEventListener("click", async () => {
-    try {
-      await apiPost("deleteRow", { sheet: "Expense", id: expense.ID });
-      closeModal(); toast("Expense deleted"); await loadData();
-    } catch (err) { toast("Couldn't delete: " + err.message); }
-  });
-}
-
-/* ============================================================ MAIN RENDER */
-function triggerFade(el) {
-  el.classList.remove("content-fade");
-  void el.offsetWidth;
-  el.classList.add("content-fade");
-}
-
-function render() {
-  renderPropertyFilter();
-  renderTabbar();
-  const content = document.getElementById("content");
-  const fab = document.getElementById("fabBtn");
-
-  if (!state.loaded) {
-    content.innerHTML = `<div class="state-msg"><div class="spinner"></div>Loading your data…</div>`;
-    fab.style.display = "none";
-    triggerFade(content);
-    return;
-  }
-  if (state.error === "setup") {
-    content.innerHTML = `<div class="setup-banner">This app isn't connected to your Google Sheet yet. Open <code>index.html</code>, find <code>APPS_SCRIPT_URL</code> near the top of the script, and paste in your Apps Script Web App URL. See SETUP-GUIDE.md for the full steps.</div>`;
-    fab.style.display = "none";
-    triggerFade(content);
-    return;
-  }
-  if (state.error === "network") {
-    content.innerHTML = `<div class="setup-banner">Couldn't reach your Google Sheet. Check that the Apps Script is deployed with access set to "Anyone", then <a href="javascript:location.reload()">reload</a>.</div>`;
-    fab.style.display = "none";
-    triggerFade(content);
-    return;
-  }
-
-  const showFab = (onclick) => {
-    fab.style.display = "flex"; fab.style.alignItems = "center"; fab.style.justifyContent = "center";
-    fab.onclick = onclick;
-  };
-
-  if (state.tab === "home") { content.innerHTML = renderHome(); fab.style.display = "none"; bindHomeActions(); }
-  if (state.tab === "tenants") { content.innerHTML = renderTenants(); showFab(openAddTenantModal); bindTenantActions(); }
-  if (state.tab === "rooms") { content.innerHTML = renderRooms(); showFab(openAddRoomModal); bindRoomActions(); }
-  if (state.tab === "hotel") { content.innerHTML = renderHotel(); showFab(openBookRoomPicker); bindRoomActions(); }
-  if (state.tab === "expense") { content.innerHTML = renderExpense(); showFab(openAddExpenseModal); bindExpenseActions(); }
-  if (state.tab === "trends") { content.innerHTML = renderTrends(); fab.style.display = "none"; }
-  triggerFade(content);
-}
-
-/* ============================================================ MODAL SHELL */
-function closeModal() { document.getElementById("modalRoot").innerHTML = ""; }
-function guardedSubmit(form, handler) {
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    if (!btn || btn.disabled) return;
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Please wait…";
-    try {
-      await handler(e);
-    } finally {
-      if (document.body.contains(btn)) { btn.disabled = false; btn.textContent = original; }
-    }
-  });
-}
-function openModal(html) {
-  document.getElementById("modalRoot").innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal-sheet"><div class="modal-handle"></div>${html}</div></div>`;
-  document.getElementById("modalOverlay").addEventListener("click", e => { if (e.target.id === "modalOverlay") closeModal(); });
-}
-function openActionSheet(title, actions) {
-  openModal(`
-    <p class="modal-title">${title}</p>
-    <div id="sheetActions">
-      ${actions.map((a, i) => `<button class="sheet-action ${a.danger ? "danger" : ""}" data-i="${i}">${a.label}</button>`).join("")}
-    </div>
-    <button class="btn cancel" style="width:100%;margin-top:4px;" onclick="closeModal()">Cancel</button>
-  `);
-  document.querySelectorAll('#sheetActions .sheet-action').forEach(btn => {
-    btn.addEventListener("click", () => { closeModal(); actions[Number(btn.dataset.i)].onClick(); });
-  });
-}
-
-/* ============================================================ ROOMS: ADD */
-function openAddRoomModal() {
-  openModal(`
-    <p class="modal-title">Add room</p>
-    <form id="roomForm">
-      <div class="field"><label>Property</label>
-        <select name="Property">${CONFIG.PROPERTIES.map(p => `<option value="${p}">${p}</option>`).join("")}</select>
-      </div>
-      <div class="field"><label>Room number / name</label><input name="RoomNumber" placeholder="e.g. 101" required></div>
-      <div class="field"><label>Beds (capacity)</label><input name="Beds" type="number" min="1" value="1" required></div>
-      <p class="field-error" id="roomErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Add room</button>
-      </div>
-    </form>
-  `);
-  guardedSubmit(document.getElementById("roomForm"), async e => {
-    const payload = Object.fromEntries(new FormData(e.target).entries());
-    const dup = state.data.rooms.some(r =>
-      r.Property === payload.Property &&
-      String(r.RoomNumber).trim().toLowerCase() === String(payload.RoomNumber).trim().toLowerCase()
-    );
-    if (dup) {
-      document.getElementById("roomErr").textContent = "Room " + payload.RoomNumber + " already exists in " + payload.Property + ".";
-      document.getElementById("roomErr").style.display = "block";
-      return;
-    }
-    try {
-      await apiPost("addRoom", payload);
-      closeModal(); toast("Room added"); await loadData();
-    } catch (err) {
-      document.getElementById("roomErr").textContent = err.message;
-      document.getElementById("roomErr").style.display = "block";
-    }
-  });
-}
-
-/* ============================================================ HOTEL BOOKINGS */
-function openBookRoomModal(room) {
-  if (!room) return;
-  const checkOutDefault = new Date(); checkOutDefault.setDate(checkOutDefault.getDate() + 1);
-  openModal(`
-    <p class="modal-title">Book as hotel — Room ${room.RoomNumber}</p>
-    <p class="modal-subtitle">${room.Property} · this room is currently vacant</p>
-    <form id="bookingForm">
-      <div class="field"><label>Guest name</label><input name="GuestName" required></div>
-      <div class="field"><label>Phone</label><input name="Phone" type="tel"></div>
-      <div class="field"><label>Check-in</label><input name="CheckInDate" id="bkCheckIn" type="date" value="${todayISO()}" required></div>
-      <div class="field"><label>Check-out</label><input name="CheckOutDate" id="bkCheckOut" type="date" value="${checkOutDefault.toISOString().slice(0,10)}" required></div>
-      <div class="field"><label>Rate per night (₹)</label><input name="RatePerNight" id="bkRate" type="number" min="0" required></div>
-      <div class="field"><label>Total amount (₹)</label><input name="TotalAmount" id="bkTotal" type="number" min="0" placeholder="Auto-calculated from nights × rate"></div>
-      <div class="field"><label>Amount received now (₹)</label><input name="AmountPaid" type="number" min="0" value="0"></div>
-      <div class="field"><label>Payment mode</label>
-        <select name="PaymentMode">
-          ${Object.entries(CONFIG.PEOPLE).map(([person, cfg]) =>
-            `<optgroup label="${person}">${cfg.modes.map(m => `<option value="${m}">${m}</option>`).join("")}</optgroup>`
-          ).join("")}
-        </select>
-      </div>
-      <div class="field"><label>Notes (optional)</label><textarea name="Notes"></textarea></div>
-      <p class="field-hint" id="bkNights"></p>
-      <p class="field-error" id="bookingErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Check in</button>
-      </div>
-    </form>
-  `);
-  const updateNights = () => {
-    const ci = document.getElementById("bkCheckIn").value;
-    const co = document.getElementById("bkCheckOut").value;
-    const rate = Number(document.getElementById("bkRate").value || 0);
-    if (!ci || !co) return;
-    const nights = nightsBetween(ci, co);
-    document.getElementById("bkNights").textContent = `${nights} night${nights === 1 ? "" : "s"} × ${rupee(rate)} = ${rupee(nights * rate)} suggested total`;
-    if (!document.getElementById("bkTotal").value) document.getElementById("bkTotal").placeholder = rupee(nights * rate);
-  };
-  ["bkCheckIn", "bkCheckOut", "bkRate"].forEach(id => document.getElementById(id).addEventListener("input", updateNights));
-  updateNights();
-
-  guardedSubmit(document.getElementById("bookingForm"), async e => {
-    e.preventDefault();
-    const payload = Object.fromEntries(new FormData(e.target).entries());
-    payload.Property = room.Property;
-    payload.RoomID = room.ID;
-    payload.RoomNumber = room.RoomNumber;
-    if (!payload.TotalAmount) delete payload.TotalAmount; // let the backend compute nights × rate
-    try {
-      await apiPost("addBooking", payload);
-      closeModal(); toast("Guest checked in"); await loadData();
-    } catch (err) {
-      document.getElementById("bookingErr").textContent = err.message;
-      document.getElementById("bookingErr").style.display = "block";
-    }
-  });
-}
-
-function openBookingManageSheet(booking) {
-  if (!booking) return;
-  const actions = [];
-  if (bookingBalance(booking) > 0) actions.push({ label: "Record payment", onClick: () => openBookingPaymentModal(booking) });
-  actions.push({ label: "Check out guest", onClick: () => openCheckoutModal(booking) });
-  actions.push({ label: "Cancel booking", danger: true, onClick: () => confirmCancelBooking(booking) });
-  openActionSheet(`${booking.GuestName} · Room ${booking.RoomNumber}`, actions);
-}
-
-function openBookingPaymentModal(booking) {
-  if (!booking) return;
-  const bal = bookingBalance(booking);
-  openModal(`
-    <p class="modal-title">Record payment — ${booking.GuestName}</p>
-    <p class="modal-subtitle">${rupee(bal)} outstanding of ${rupee(booking.TotalAmount)} total</p>
-    <form id="bkPayForm">
-      <div class="field"><label>Amount received (₹)</label><input name="amount" type="number" min="0" max="${bal}" value="${bal}" required></div>
-      <div class="field"><label>Payment mode</label>
-        <select name="paymentMode">
-          ${Object.entries(CONFIG.PEOPLE).map(([person, cfg]) =>
-            `<optgroup label="${person}">${cfg.modes.map(m => `<option value="${m}">${m}</option>`).join("")}</optgroup>`
-          ).join("")}
-        </select>
-      </div>
-      <p class="field-error" id="bkPayErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Save payment</button>
-      </div>
-    </form>
-  `);
-  guardedSubmit(document.getElementById("bkPayForm"), async e => {
-    e.preventDefault();
-    const payload = Object.fromEntries(new FormData(e.target).entries());
-    payload.id = booking.ID;
-    try {
-      await apiPost("recordBookingPayment", payload);
-      closeModal(); toast("Payment recorded"); await loadData();
-    } catch (err) {
-      document.getElementById("bkPayErr").textContent = err.message;
-      document.getElementById("bkPayErr").style.display = "block";
-    }
-  });
-}
-
-function openCheckoutModal(booking) {
-  const bal = bookingBalance(booking);
-  openModal(`
-    <p class="modal-title">Check out ${booking.GuestName}?</p>
-    <p class="modal-subtitle">${bal > 0 ? rupee(bal) + " is still outstanding — record that payment first, or check out anyway and settle later." : "Fully paid — room will become vacant."}</p>
-    <div class="modal-actions">
-      <button class="btn cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn submit" id="confirmCheckoutBtn">Check out</button>
-    </div>
-  `);
-  document.getElementById("confirmCheckoutBtn").addEventListener("click", async () => {
-    try {
-      await apiPost("checkoutBooking", { id: booking.ID });
-      closeModal(); toast("Guest checked out"); await loadData();
-    } catch (err) { toast("Couldn't check out: " + err.message); }
-  });
-}
-
-function confirmCancelBooking(booking) {
-  openModal(`
-    <p class="modal-title">Cancel this booking?</p>
-    <p class="modal-subtitle">Room ${booking.RoomNumber} will show as vacant again. Any recorded payment stays in the sheet for your records.</p>
-    <div class="modal-actions">
-      <button class="btn cancel" onclick="closeModal()">Back</button>
-      <button class="btn danger" id="confirmCancelBtn">Cancel booking</button>
-    </div>
-  `);
-  document.getElementById("confirmCancelBtn").addEventListener("click", async () => {
-    try {
-      await apiPost("cancelBooking", { id: booking.ID });
-      closeModal(); toast("Booking cancelled"); await loadData();
-    } catch (err) { toast("Couldn't cancel: " + err.message); }
-  });
-}
-
-/* ============================================================ TENANTS: ADD / EDIT */
-function roomOptionsFor(property, selectedRoomId) {
-  const rooms = state.data.rooms.filter(r => r.Property === property);
-  if (!rooms.length) return `<option value="">No rooms yet — add one on the Rooms tab</option>`;
-  return rooms.map(r => {
-    const occ = state.data.tenants.filter(t => t.RoomID === r.ID && t.Status !== "Vacated").length;
-    return `<option value="${r.ID}" data-roomnumber="${r.RoomNumber}" data-beds="${r.Beds}" data-occupied="${occ}" ${r.ID === selectedRoomId ? "selected" : ""}>Room ${r.RoomNumber} (${occ}/${r.Beds} beds)</option>`;
-  }).join("");
-}
-
-function tenantFormFields(t) {
-  const property = t ? t.Property : CONFIG.PROPERTIES[0];
-  return `
-    <div class="field"><label>Property</label>
-      <select name="Property" id="tenantPropertySelect">${CONFIG.PROPERTIES.map(p => `<option value="${p}" ${p === property ? "selected" : ""}>${p}</option>`).join("")}</select>
-    </div>
-    <div class="field"><label>Room</label>
-      <select name="RoomID" id="tenantRoomSelect">${roomOptionsFor(property, t ? t.RoomID : null)}</select>
-    </div>
-    <div class="field"><label>Tenant name</label><input name="Name" value="${t ? t.Name : ""}" required></div>
-    <div class="field"><label>Phone</label><input name="Phone" type="tel" value="${t ? t.Phone : ""}"></div>
-    <div class="field"><label>Monthly rent (₹)</label><input name="RentAmount" type="number" min="0" value="${t ? t.RentAmount : ""}" required></div>
-    <div class="field"><label>Security deposit (₹)</label><input name="Deposit" type="number" min="0" value="${t ? t.Deposit : ""}"></div>
-    <div class="field"><label>Check-in date</label><input name="CheckInDate" type="date" value="${t ? String(t.CheckInDate).slice(0, 10) : todayISO()}" ${t ? "disabled" : "required"}></div>
-    ${t ? `<p class="field-hint">Check-in date can't be edited once dues have started generating.</p>` : `<p class="field-hint">Rent is billed monthly from this date — the first month is prorated automatically.</p>`}
-  `;
-}
-
-function bindRoomDependency() {
-  const propSel = document.getElementById("tenantPropertySelect");
-  const roomSel = document.getElementById("tenantRoomSelect");
-  if (!propSel) return;
-  propSel.addEventListener("change", () => { roomSel.innerHTML = roomOptionsFor(propSel.value, null); });
-}
-
-function openAddTenantModal() {
-  openModal(`
-    <p class="modal-title">Add tenant</p>
-    <form id="tenantForm">
-      ${tenantFormFields(null)}
-      <p class="field-error" id="tenantErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Add tenant</button>
-      </div>
-    </form>
-  `);
-  bindRoomDependency();
-  guardedSubmit(document.getElementById("tenantForm"), async e => {
-    e.preventDefault();
-    const f = new FormData(e.target);
-    const payload = Object.fromEntries(f.entries());
-    const roomSel = document.getElementById("tenantRoomSelect");
-    const roomOpt = roomSel.selectedOptions[0];
-    payload.RoomNumber = roomOpt ? roomOpt.dataset.roomnumber || "" : "";
-    if (roomOpt && roomOpt.dataset.beds) {
-      const beds = Number(roomOpt.dataset.beds);
-      const occ = Number(roomOpt.dataset.occupied || 0);
-      if (occ >= beds) {
-        document.getElementById("tenantErr").textContent = `Room ${payload.RoomNumber} is full (${occ}/${beds} beds). Edit the room to add more beds first.`;
-        document.getElementById("tenantErr").style.display = "block";
-        return;
-      }
-    }
-    try {
-      await apiPost("addTenant", payload);
-      closeModal(); toast("Tenant added"); await loadData();
-    } catch (err) {
-      document.getElementById("tenantErr").textContent = err.message;
-      document.getElementById("tenantErr").style.display = "block";
-    }
-  });
-}
-
-function openEditTenantModal(tenant) {
-  openModal(`
-    <p class="modal-title">Edit tenant</p>
-    <form id="tenantForm">
-      ${tenantFormFields(tenant)}
-      <p class="field-error" id="tenantErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Save changes</button>
-      </div>
-    </form>
-  `);
-  bindRoomDependency();
-  guardedSubmit(document.getElementById("tenantForm"), async e => {
-    e.preventDefault();
-    const f = new FormData(e.target);
-    const payload = Object.fromEntries(f.entries());
-    const roomSel = document.getElementById("tenantRoomSelect");
-    const roomOpt = roomSel.selectedOptions[0];
-    payload.RoomNumber = roomOpt ? roomOpt.dataset.roomnumber || "" : "";
-    if (roomOpt && roomOpt.value !== tenant.RoomID && roomOpt.dataset.beds) {
-      const beds = Number(roomOpt.dataset.beds);
-      const occ = Number(roomOpt.dataset.occupied || 0);
-      if (occ >= beds) {
-        document.getElementById("tenantErr").textContent = `Room ${payload.RoomNumber} is full (${occ}/${beds} beds). Edit the room to add more beds first.`;
-        document.getElementById("tenantErr").style.display = "block";
-        return;
-      }
-    }
-    payload.ID = tenant.ID;
-    delete payload.CheckInDate; // disabled field isn't submitted, but just in case
-    try {
-      await apiPost("updateTenant", payload);
-      closeModal(); toast("Tenant updated"); await loadData();
-    } catch (err) {
-      document.getElementById("tenantErr").textContent = err.message;
-      document.getElementById("tenantErr").style.display = "block";
-    }
-  });
-}
-
-/* ============================================================ TENANTS: MANAGE SHEET */
-function openTenantManageSheet(tenantId) {
-  const t = state.data.tenants.find(x => x.ID === tenantId);
-  if (!t) return;
-  const actions = [{ label: "Edit tenant", onClick: () => openEditTenantModal(t) }];
-  const lastPayment = state.data.payments.filter(p => p.TenantID === t.ID).sort((a, b) => new Date(b.Date) - new Date(a.Date))[0];
-  if (lastPayment) actions.push({ label: "Resend last receipt (WhatsApp)", onClick: () => resendReceipt(t, lastPayment) });
-  if (t.Status === "Active") actions.push({ label: "Start notice period", onClick: () => openStartNoticeModal(t) });
-  if ((t.Status === "Notice" || t.Status === "Vacated") && t.DepositReturned !== "Yes") {
-    actions.push({ label: "Return security deposit", onClick: () => openReturnDepositModal(t) });
-  }
-  actions.push({ label: "Remove tenant", danger: true, onClick: () => confirmDeleteTenant(t) });
-  openActionSheet(`${t.Name} · ${t.Property} Room ${t.RoomNumber || "—"}`, actions);
-}
-
-function resendReceipt(tenant, payment) {
-  const due = state.data.dues.find(d => d.ID === payment.DueID);
-  openReceiptModal(tenant, {
-    amount: Number(payment.Amount || 0),
-    mode: payment.PaymentMode,
-    discount: Number(payment.Discount || 0),
-    date: payment.Date,
-    period: due ? periodLabel(due.Period) : "",
-    balance: due ? Math.max(0, dueBalance(due)) : 0,
-    person: personForMode(payment.PaymentMode)
-  });
-}
-
-function confirmDeleteTenant(t) {
-  openModal(`
-    <p class="modal-title">Remove ${t.Name}?</p>
-    <p class="modal-subtitle">This removes the tenant record. Rent and payment history already recorded will stay in the sheet.</p>
-    <div class="modal-actions">
-      <button class="btn cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn danger" id="confirmDeleteBtn">Remove</button>
-    </div>
-  `);
-  document.getElementById("confirmDeleteBtn").addEventListener("click", async () => {
-    try {
-      await apiPost("deleteTenant", { id: t.ID });
-      closeModal(); toast("Tenant removed"); await loadData();
-    } catch (err) { toast("Couldn't remove: " + err.message); }
-  });
-}
-
-/* ============================================================ NOTICE */
-function openStartNoticeModal(t) {
-  const suggested = new Date(); suggested.setDate(suggested.getDate() + 30);
-  openModal(`
-    <p class="modal-title">Start notice — ${t.Name}</p>
-    <p class="modal-subtitle">Rent for the move-out month will be recalculated automatically for the days actually stayed.</p>
-    <form id="noticeForm">
-      <div class="field"><label>Last date in property</label><input name="moveOutDate" type="date" value="${suggested.toISOString().slice(0,10)}" required></div>
-      <p class="field-error" id="noticeErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Start notice</button>
-      </div>
-    </form>
-  `);
-  guardedSubmit(document.getElementById("noticeForm"), async e => {
-    e.preventDefault();
-    const payload = Object.fromEntries(new FormData(e.target).entries());
-    payload.id = t.ID;
-    try {
-      const result = await apiPost("startNotice", payload);
-      closeModal();
-      toast(`Notice started — final rent ${rupee(result.proratedAmount)}`);
-      await loadData();
-    } catch (err) {
-      document.getElementById("noticeErr").textContent = err.message;
-      document.getElementById("noticeErr").style.display = "block";
-    }
-  });
-}
-
-/* ============================================================ DEPOSIT RETURN */
-function openReturnDepositModal(t) {
-  const openDues = tenantOpenDues(t.ID);
-  const outstanding = openDues.reduce((s, d) => s + dueBalance(d), 0);
-  const deposit = Number(t.Deposit || 0);
-  openModal(`
-    <p class="modal-title">Return deposit — ${t.Name}</p>
-    <p class="modal-subtitle">Deposit on file: ${rupee(deposit)}${outstanding > 0 ? ` · ${rupee(outstanding)} rent still outstanding` : ""}</p>
-    <form id="depositForm">
-      <div class="field"><label>Adjust against outstanding/future rent (₹)</label><input name="adjustAmount" id="depAdjust" type="number" min="0" value="${Math.min(deposit, outstanding)}"></div>
-      <p class="field-hint">This portion isn't paid out — it just settles rent dues directly, oldest first.</p>
-      <div class="field"><label>Refund in cash (₹)</label><input name="cashAmount" id="depCash" type="number" min="0" value="${Math.max(0, deposit - Math.min(deposit, outstanding))}"></div>
-      <div class="field"><label>Paid from (only needed if refunding cash)</label>
-        <select name="paidBy">${Object.keys(CONFIG.PEOPLE).map(p => `<option value="${p}">${p}</option>`).join("")}</select>
-      </div>
-      <div class="field"><label>Notes (optional)</label><textarea name="notes"></textarea></div>
-      <p class="field-hint" id="depTotal"></p>
-      <p class="field-error" id="depositErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Return deposit</button>
-      </div>
-    </form>
-  `);
-  const updateTotal = () => {
-    const adjust = Number(document.getElementById("depAdjust").value || 0);
-    const cash = Number(document.getElementById("depCash").value || 0);
-    const total = adjust + cash;
-    const hint = document.getElementById("depTotal");
-    hint.textContent = `Total: ${rupee(total)} of ${rupee(deposit)} deposit`;
-    hint.style.color = total > deposit ? "var(--negative)" : "var(--ink-soft)";
-  };
-  ["depAdjust", "depCash"].forEach(id => document.getElementById(id).addEventListener("input", updateTotal));
-  updateTotal();
-
-  guardedSubmit(document.getElementById("depositForm"), async e => {
-    const payload = Object.fromEntries(new FormData(e.target).entries());
-    payload.id = t.ID;
-    const total = Number(payload.adjustAmount || 0) + Number(payload.cashAmount || 0);
-    if (total > deposit) {
-      document.getElementById("depositErr").textContent = "Adjustment + cash refund can't exceed the deposit amount.";
-      document.getElementById("depositErr").style.display = "block";
-      return;
-    }
-    try {
-      await apiPost("returnDeposit", payload);
-      closeModal(); toast("Deposit returned"); await loadData();
-    } catch (err) {
-      document.getElementById("depositErr").textContent = err.message;
-      document.getElementById("depositErr").style.display = "block";
-    }
-  });
-}
-
-/* ============================================================ PAYMENTS */
-function compressImageToBase64(file, maxDim, quality) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Couldn't read the file."));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Couldn't decode the image."));
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          const scale = maxDim / Math.max(width, height);
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = width; canvas.height = height;
-        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL("image/jpeg", quality);
-        resolve({ base64: dataUrl.split(",")[1], mimeType: "image/jpeg" });
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function deviceLabel() {
-  const ua = navigator.userAgent || "";
-  const androidMatch = ua.match(/Android[^;]*;\s*([^)]+)\)/);
-  if (androidMatch) return androidMatch[1].split(";").pop().trim() + " (Android)";
-  const iosMatch = ua.match(/(iPhone|iPad|iPod)/);
-  if (iosMatch) return iosMatch[1] + " (iOS)";
-  return (navigator.platform || "Unknown device");
-}
-
-function openRecordPaymentModal(tenantId) {
-  const tenant = state.data.tenants.find(t => t.ID === tenantId);
-  if (!tenant) return;
-  const openDues = tenantOpenDues(tenantId);
-  if (!openDues.length) { toast("No dues currently outstanding for this tenant."); return; }
-
-  openModal(`
-    <p class="modal-title">Record payment — ${tenant.Name}</p>
-    <form id="paymentForm">
-      <div class="field"><label>For period</label>
-        <select name="dueId" id="dueSelect">
-          ${openDues.map(d => `<option value="${d.ID}" data-balance="${dueBalance(d)}">${periodLabel(d.Period)} — ${rupee(dueBalance(d))} due</option>`).join("")}
-        </select>
-      </div>
-      <div class="field"><label>Date</label><input name="date" type="date" value="${todayISO()}" required></div>
-      <div class="field"><label>Amount received (₹)</label><input name="amount" id="amountInput" type="number" min="0" value="${dueBalance(openDues[0])}" required></div>
-      <p class="field-hint">Paying more than what's due here automatically reduces the tenant's next month's rent.</p>
-      <div class="field"><label>Payment mode</label>
-        <select name="paymentMode" id="paymentModeSelect">
-          ${Object.entries(CONFIG.PEOPLE).map(([person, cfg]) =>
-            `<optgroup label="${person}">${cfg.modes.map(m => `<option value="${m}">${m}</option>`).join("")}</optgroup>`
-          ).join("")}
-        </select>
-      </div>
-      <div class="field" id="screenshotField" style="display:none;">
-        <label>UPI payment screenshot</label>
-        <input type="file" id="screenshotInput" accept="image/*" capture="environment">
-        <p class="field-hint">Required for UPI — lets you verify any payment later. Not needed for cash.</p>
-      </div>
-      <div class="field"><label>Recorded by</label>
-        <select name="recordedBy">${Object.keys(CONFIG.PEOPLE).map(p => `<option value="${p}">${p}</option>`).join("")}</select>
-      </div>
-      <input type="hidden" name="deviceInfo" id="deviceInfoInput" value="${deviceLabel()}">
-      <div class="field"><label>Discount / write-off (₹, optional)</label><input name="discount" type="number" min="0" value="0"></div>
-      <div class="field"><label>Notes (optional)</label><textarea name="notes"></textarea></div>
-      <p class="field-error" id="paymentErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Save payment</button>
-      </div>
-    </form>
-  `);
-  document.getElementById("dueSelect").addEventListener("change", e => {
-    const bal = e.target.selectedOptions[0].dataset.balance;
-    document.getElementById("amountInput").value = bal;
-  });
-
-  const modeSelect = document.getElementById("paymentModeSelect");
-  const screenshotField = document.getElementById("screenshotField");
-  const screenshotInput = document.getElementById("screenshotInput");
-  const toggleScreenshot = () => {
-    const isCash = /cash/i.test(modeSelect.value);
-    screenshotField.style.display = isCash ? "none" : "block";
-    screenshotInput.required = !isCash;
-    if (isCash) screenshotInput.value = "";
-  };
-  modeSelect.addEventListener("change", toggleScreenshot);
-  toggleScreenshot();
-
-  guardedSubmit(document.getElementById("paymentForm"), async e => {
-    e.preventDefault();
-    const payload = Object.fromEntries(new FormData(e.target).entries());
-    payload.tenantId = tenantId;
-    const selectedDue = openDues.find(d => d.ID === payload.dueId) || openDues[0];
-    const amount = Number(payload.amount || 0);
-    const discount = Number(payload.discount || 0);
-    const balance = Math.max(0, dueBalance(selectedDue) - amount - discount);
-
-    const file = screenshotInput.files[0];
-    if (screenshotInput.required && !file) {
-      document.getElementById("paymentErr").textContent = "Please attach the UPI payment screenshot.";
-      document.getElementById("paymentErr").style.display = "block";
-      return;
-    }
-    if (file) {
-      try {
-        const compressed = await compressImageToBase64(file, 1280, 0.7);
-        payload.screenshotData = compressed.base64;
-        payload.screenshotType = compressed.mimeType;
-        payload.screenshotName = (tenant.Name || "payment").replace(/[^a-z0-9]/gi, "_") + "-" + payload.date + ".jpg";
-      } catch (err) {
-        document.getElementById("paymentErr").textContent = "Couldn't process the screenshot — try a different photo.";
-        document.getElementById("paymentErr").style.display = "block";
-        return;
-      }
-    }
-
-    try {
-      await apiPost("recordPayment", payload);
-      toast("Payment recorded");
-      await loadData();
-      openReceiptModal(tenant, {
-        amount, discount, balance,
-        mode: payload.paymentMode,
-        date: payload.date,
-        period: periodLabel(selectedDue.Period),
-        person: personForMode(payload.paymentMode),
-        dueAmount: Number(selectedDue.AmountDue || 0),
-        rentAmount: Number(tenant.RentAmount || 0),
-        roomNumber: tenant.RoomNumber
-      });
-    } catch (err) {
-      document.getElementById("paymentErr").textContent = err.message;
-      document.getElementById("paymentErr").style.display = "block";
-    }
-  });
-}
-
-/* ============================================================ EXPENSE */
-function categoryOptions() {
-  const used = Array.from(new Set(state.data.expense.map(e => e.Category).filter(Boolean)));
-  const merged = Array.from(new Set([...CONFIG.EXPENSE_CATEGORIES, ...used]));
-  merged.sort((a, b) => a.localeCompare(b));
-  return merged;
-}
-
-function openAddExpenseModal() {
-  openModal(`
-    <p class="modal-title">Add expense</p>
-    <form id="expenseForm">
-      <div class="field"><label>Property</label>
-        <select name="Property">${CONFIG.PROPERTIES.map(p => `<option value="${p}">${p}</option>`).join("")}</select>
-      </div>
-      <div class="field"><label>Category</label>
-        <select name="CategorySelect" id="categorySelect">
-          ${categoryOptions().map(c => `<option value="${c}">${c}</option>`).join("")}
-          <option value="__other__">+ Add new category</option>
-        </select>
-      </div>
-      <div class="field" id="categoryOtherField" style="display:none;">
-        <label>New category name</label>
-        <input name="CategoryOther" id="categoryOtherInput" placeholder="e.g. Pest control">
-      </div>
-      <div class="field"><label>Amount (₹)</label><input name="Amount" type="number" min="0" required></div>
-      <div class="field"><label>Date</label><input name="Date" type="date" value="${todayISO()}" required></div>
-      <div class="field"><label>Paid by</label>
-        <select name="PaidBy">${Object.keys(CONFIG.PEOPLE).map(p => `<option value="${p}">${p}</option>`).join("")}</select>
-      </div>
-      <div class="field"><label>Notes (optional)</label><textarea name="Notes"></textarea></div>
-      <p class="field-error" id="expenseErr"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn submit">Save expense</button>
-      </div>
-    </form>
-  `);
-  const catSelect = document.getElementById("categorySelect");
-  const catOtherField = document.getElementById("categoryOtherField");
-  const catOtherInput = document.getElementById("categoryOtherInput");
-  catSelect.addEventListener("change", () => {
-    const isOther = catSelect.value === "__other__";
-    catOtherField.style.display = isOther ? "block" : "none";
-    catOtherInput.required = isOther;
-  });
-  guardedSubmit(document.getElementById("expenseForm"), async e => {
-    e.preventDefault();
-    const payload = Object.fromEntries(new FormData(e.target).entries());
-    payload.Category = (payload.CategorySelect === "__other__" ? payload.CategoryOther : payload.CategorySelect || "").trim();
-    delete payload.CategorySelect;
-    delete payload.CategoryOther;
-    if (!payload.Category) {
-      document.getElementById("expenseErr").textContent = "Please enter a category name.";
-      document.getElementById("expenseErr").style.display = "block";
-      return;
-    }
-    try {
-      await apiPost("addExpense", payload);
-      closeModal(); toast("Expense saved"); await loadData();
-    } catch (err) {
-      document.getElementById("expenseErr").textContent = err.message;
-      document.getElementById("expenseErr").style.display = "block";
-    }
-  });
-}
-
-/* ============================================================ LOCK SCREEN */
-/* ★★★ EDIT #6 — LOGIN PIN. Change "289091" to any digits you like.
-   The dots on the lock screen adjust automatically to the length. ★★★ */
-const LOCK = { PIN: "289091", KEY: "cozyUnlocked" };
-
-function startApp() {
-  document.body.classList.remove("locked");
-  const lock = document.getElementById("lockScreen");
-  if (lock) lock.remove();
-  document.removeEventListener("keydown", pinKeyHandler);
-  render();
-  loadData();
-}
-
-let pinEntry = "";
-
-function drawPinDots() {
-  const dots = document.getElementById("pinDots");
-  if (!dots) return;
-  dots.innerHTML = Array.from({ length: LOCK.PIN.length }, (_, i) =>
-    `<span class="pin-dot${i < pinEntry.length ? " filled" : ""}"></span>`
-  ).join("");
-}
-
-function pinFail() {
-  const err = document.getElementById("pinErr");
-  const dots = document.getElementById("pinDots");
-  err.textContent = "Wrong PIN. Try again.";
-  dots.classList.remove("shake");
-  void dots.offsetWidth;
-  dots.classList.add("shake");
-  pinEntry = "";
-  drawPinDots();
-}
-
-function pinPush(digit) {
-  if (pinEntry.length >= LOCK.PIN.length) return;
-  document.getElementById("pinErr").textContent = "";
-  pinEntry += digit;
-  drawPinDots();
-  if (pinEntry.length === LOCK.PIN.length) {
-    setTimeout(() => {
-      if (pinEntry === LOCK.PIN) {
-        try { sessionStorage.setItem(LOCK.KEY, "1"); } catch (e) {}
-        startApp();
-      } else {
-        pinFail();
-      }
-    }, 140);
-  }
-}
-
-function pinBack() {
-  pinEntry = pinEntry.slice(0, -1);
-  document.getElementById("pinErr").textContent = "";
-  drawPinDots();
-}
-
-function pinKeyHandler(e) {
-  if (/^[0-9]$/.test(e.key)) pinPush(e.key);
-  else if (e.key === "Backspace") pinBack();
-}
-
-function initLock() {
-  let unlocked = false;
-  try { unlocked = sessionStorage.getItem(LOCK.KEY) === "1"; } catch (e) {}
-  if (unlocked) { startApp(); return; }
-
-  const keypad = document.getElementById("keypad");
-  const keys = ["1","2","3","4","5","6","7","8","9","","0","del"];
-  keypad.innerHTML = keys.map(k => {
-    if (k === "") return `<span></span>`;
-    if (k === "del") return `<button class="key ghost" type="button" data-key="del">Delete</button>`;
-    return `<button class="key" type="button" data-key="${k}">${k}</button>`;
-  }).join("");
-  keypad.addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-key]");
-    if (!btn) return;
-    const k = btn.dataset.key;
-    if (k === "del") pinBack(); else pinPush(k);
-  });
-  drawPinDots();
-  document.addEventListener("keydown", pinKeyHandler);
-}
-
-/* ============================================================ INIT */
-initLock();
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
-}
-let resizeTimer;
-window.addEventListener("resize", () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { renderPropertyFilter(); renderTabbar(); }, 120);
-});
-</script>
-</body>
-</html>
+    <p class="modal-subtitle">${expense.Category} · ${rupee(expense.Amount)} on ${fmtDate(exp
