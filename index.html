@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --bg:#EEF2EF;
@@ -761,6 +762,12 @@ const CONFIG = {
 
   /* ★ EDIT #2 (optional) — your property names, exactly as in the sheet */
   PROPERTIES: ["Cozy 2", "Cozy 3"],
+
+  /* ★ EDIT (optional) — full address for each property, printed on rent receipts */
+  PROPERTY_ADDRESSES: {
+    "Cozy 2": "Address not set — edit PROPERTY_ADDRESSES in index.html",
+    "Cozy 3": "Address not set — edit PROPERTY_ADDRESSES in index.html"
+  },
   /* ★ EDIT #3 (optional) — who collects money, and their payment modes */
   PEOPLE: {
     Dev: { modes: ["UPI Babli", "UPI Nar", "Cash Dev"], color: "dev" },
@@ -879,6 +886,135 @@ function buildReceiptMessage(tenant, info) {
   lines.push("Thank you!");
   return lines.join("\n");
 }
+let logoDataUrlCache = null;
+function loadLogoDataUrl() {
+  if (logoDataUrlCache) return Promise.resolve(logoDataUrlCache);
+  return fetch("icon-512.png")
+    .then(res => res.blob())
+    .then(blob => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => { logoDataUrlCache = reader.result; resolve(reader.result); };
+      reader.onerror = () => reject(new Error("logo load failed"));
+      reader.readAsDataURL(blob);
+    }))
+    .catch(() => null);
+}
+
+async function downloadReceiptPDF(tenant, info) {
+  if (!window.jspdf) { toast("PDF library didn't load — check your connection and try again."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 48;
+  const brand = [19, 73, 175]; // matches the logo's blue
+  const ink = [30, 34, 40];
+  const soft = [110, 118, 128];
+
+  const logo = await loadLogoDataUrl();
+  if (logo) {
+    try { doc.addImage(logo, "PNG", margin, 40, 46, 46); } catch (e) {}
+  }
+  doc.setTextColor(...brand);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("Cozy Stays PG", margin + (logo ? 58 : 0), 62);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...soft);
+  doc.text("Your home, away from home", margin + (logo ? 58 : 0), 77);
+
+  doc.setDrawColor(...brand);
+  doc.setLineWidth(1.2);
+  doc.line(margin, 100, pageW - margin, 100);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(...ink);
+  doc.text("RENT RECEIPT", pageW / 2, 122, { align: "center" });
+
+  const receiptNo = "RCPT-" + String(tenant.ID || "").slice(0, 6).toUpperCase() + "-" + String(info.date || "").replace(/-/g, "");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...soft);
+  doc.text("Receipt No: " + receiptNo, margin, 140);
+  doc.text("Date: " + fmtDate(info.date), pageW - margin, 140, { align: "right" });
+
+  let y = 168;
+  const address = (CONFIG.PROPERTY_ADDRESSES && CONFIG.PROPERTY_ADDRESSES[tenant.Property]) || tenant.Property;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...ink);
+  doc.text("Property", margin, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const addrLines = doc.splitTextToSize(tenant.Property + " — " + address, pageW - margin * 2);
+  doc.text(addrLines, margin, y + 16);
+  y += 16 + addrLines.length * 13 + 14;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Tenant", margin, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text("Name: " + tenant.Name, margin, y + 16);
+  doc.text("Room: " + (info.roomNumber || tenant.RoomNumber || "—"), margin, y + 32);
+  doc.text("Phone: " + (tenant.Phone || "—"), margin, y + 48);
+  y += 68;
+
+  // Payment details table
+  const rows = [
+    ["Due month", info.period || "—"],
+    ["Monthly rent", rupee(info.rentAmount || tenant.RentAmount || 0)],
+    ["Amount due (this month)", rupee(info.dueAmount || 0)],
+    ["Amount paid (this receipt)", rupee(info.amount || 0)],
+  ];
+  if (info.discount > 0) rows.push(["Discount / write-off", rupee(info.discount)]);
+  rows.push(["Payment mode", info.mode || "—"]);
+  rows.push(["Balance remaining", rupee(info.balance || 0)]);
+  if (info.person) rows.push(["Received by", info.person]);
+
+  doc.setDrawColor(220, 224, 228);
+  doc.setFillColor(246, 248, 250);
+  const tableX = margin, tableW = pageW - margin * 2, rowH = 24;
+  doc.rect(tableX, y, tableW, rowH * rows.length, "F");
+  rows.forEach((r, i) => {
+    const ry = y + i * rowH;
+    doc.setDrawColor(230, 233, 236);
+    doc.line(tableX, ry, tableX + tableW, ry);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(...soft);
+    doc.text(r[0], tableX + 12, ry + 16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...ink);
+    doc.text(String(r[1]), tableX + tableW - 12, ry + 16, { align: "right" });
+  });
+  doc.rect(tableX, y, tableW, rowH * rows.length);
+  y += rowH * rows.length + 26;
+
+  if (info.notes) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...soft);
+    const noteLines = doc.splitTextToSize("Notes: " + info.notes, pageW - margin * 2);
+    doc.text(noteLines, margin, y);
+    y += noteLines.length * 13 + 10;
+  }
+
+  const pageH = doc.internal.pageSize.getHeight();
+  doc.setDrawColor(230, 233, 236);
+  doc.line(margin, pageH - 70, pageW - margin, pageH - 70);
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...soft);
+  doc.text("This is a computer generated receipt and does not require a signature or stamp.", pageW / 2, pageH - 52, { align: "center" });
+  doc.text("Cozy Stays PG", pageW / 2, pageH - 38, { align: "center" });
+
+  const filename = "Receipt-" + tenant.Name.replace(/[^a-z0-9]/gi, "_") + "-" + (info.period || info.date || "").replace(/\s/g, "") + ".pdf";
+  doc.save(filename);
+}
+
 function openReceiptModal(tenant, info) {
   const message = buildReceiptMessage(tenant, info);
   const link = waLink(tenant.Phone, message);
@@ -892,11 +1028,26 @@ function openReceiptModal(tenant, info) {
     <div class="receipt-preview">${previewHtml}</div>
     <div class="modal-actions">
       <button class="btn cancel" onclick="closeModal()">Close</button>
+      <button class="btn submit" id="pdfReceiptBtn">Download PDF</button>
       ${link
         ? `<a class="btn submit wa-btn" href="${link}" target="_blank" rel="noopener">Send on WhatsApp</a>`
         : `<button class="btn submit" disabled style="opacity:.5;">Add phone number first</button>`}
     </div>
   `);
+  document.getElementById("pdfReceiptBtn").addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "Preparing…";
+    try {
+      await downloadReceiptPDF(tenant, info);
+    } catch (err) {
+      toast("Couldn't generate the PDF: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
 }
 
 /* ============================================================ API */
@@ -1057,6 +1208,61 @@ function bindHomeActions() {
   document.querySelectorAll('[data-stat]').forEach(card => {
     card.addEventListener("click", () => openStatListModal(card.dataset.stat));
   });
+  document.querySelectorAll('[data-action="payment-detail"]').forEach(row => {
+    row.addEventListener("click", () => openPaymentDetailModal(state.data.payments.find(p => p.ID === row.dataset.id)));
+  });
+}
+
+function openPaymentDetailModal(payment) {
+  if (!payment) return;
+  const tenant = state.data.tenants.find(t => t.ID === payment.TenantID);
+  const due = state.data.dues.find(d => d.ID === payment.DueID);
+  openModal(`
+    <p class="modal-title">Payment — ${payment.TenantName || "Tenant"}</p>
+    <div class="list-card">
+      <div class="stat-list-row"><span class="stat-list-meta">Amount</span><span class="stat-list-name">${rupee(payment.Amount)}</span></div>
+      <div class="stat-list-row"><span class="stat-list-meta">Date</span><span class="stat-list-name">${fmtDate(payment.Date)}</span></div>
+      <div class="stat-list-row"><span class="stat-list-meta">Property</span><span class="stat-list-name">${payment.Property}</span></div>
+      <div class="stat-list-row"><span class="stat-list-meta">Mode</span><span class="stat-list-name">${payment.PaymentMode}</span></div>
+      ${payment.Discount > 0 ? `<div class="stat-list-row"><span class="stat-list-meta">Discount</span><span class="stat-list-name">${rupee(payment.Discount)}</span></div>` : ""}
+      ${payment.RecordedBy ? `<div class="stat-list-row"><span class="stat-list-meta">Recorded by</span><span class="stat-list-name">${payment.RecordedBy}</span></div>` : ""}
+      ${payment.DeviceInfo ? `<div class="stat-list-row"><span class="stat-list-meta">Device</span><span class="stat-list-name">${payment.DeviceInfo}</span></div>` : ""}
+      ${payment.Notes ? `<div class="stat-list-row"><span class="stat-list-meta">Notes</span><span class="stat-list-name">${payment.Notes}</span></div>` : ""}
+    </div>
+    <div class="modal-actions">
+      <button class="btn cancel" onclick="closeModal()">Close</button>
+      ${payment.ScreenshotUrl ? `<a class="btn submit" href="${payment.ScreenshotUrl}" target="_blank" rel="noopener">View screenshot</a>` : ""}
+      ${tenant ? `<button class="btn submit" id="paymentPdfBtn">Download PDF</button>` : ""}
+    </div>
+  `);
+  if (tenant) {
+    document.getElementById("paymentPdfBtn").addEventListener("click", async (e) => {
+      const btn = e.target;
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "Preparing…";
+      try {
+        await downloadReceiptPDF(tenant, {
+          amount: Number(payment.Amount || 0),
+          discount: Number(payment.Discount || 0),
+          balance: due ? dueBalance(due) : 0,
+          mode: payment.PaymentMode,
+          date: payment.Date,
+          period: due ? periodLabel(due.Period) : "—",
+          person: payment.RecordedBy || personForMode(payment.PaymentMode),
+          dueAmount: due ? Number(due.AmountDue || 0) : Number(tenant.RentAmount || 0),
+          rentAmount: Number(tenant.RentAmount || 0),
+          roomNumber: tenant.RoomNumber,
+          notes: payment.Notes
+        });
+      } catch (err) {
+        toast("Couldn't generate the PDF: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  }
 }
 
 function renderHome() {
@@ -1091,9 +1297,9 @@ function renderHome() {
     .sort((a, b) => b.overdue - a.overdue);
 
   const recent = [
-    ...payments.map(p => ({ date: p.Date, title: p.TenantName || "Payment", meta: `${p.Property} · ${p.PaymentMode}`, amount: Number(p.Amount || 0), type: "plus" })),
-    ...expense.map(e => ({ date: e.Date, title: e.Category || "Expense", meta: `${e.Property} · Paid by ${e.PaidBy}`, amount: -Number(e.Amount || 0), type: "minus" })),
-    ...bookings.filter(b => Number(b.AmountPaid || 0) > 0).map(b => ({ date: b.CheckInDate, title: b.GuestName, meta: `${b.Property} · Room ${b.RoomNumber} · Hotel`, amount: Number(b.AmountPaid || 0), type: "plus" }))
+    ...payments.map(p => ({ date: p.Date, title: p.TenantName || "Payment", meta: `${p.Property} · ${p.PaymentMode}`, amount: Number(p.Amount || 0), type: "plus", kind: "payment", raw: p })),
+    ...expense.map(e => ({ date: e.Date, title: e.Category || "Expense", meta: `${e.Property} · Paid by ${e.PaidBy}`, amount: -Number(e.Amount || 0), type: "minus", kind: "expense", raw: e })),
+    ...bookings.filter(b => Number(b.AmountPaid || 0) > 0).map(b => ({ date: b.CheckInDate, title: b.GuestName, meta: `${b.Property} · Room ${b.RoomNumber} · Hotel`, amount: Number(b.AmountPaid || 0), type: "plus", kind: "booking", raw: b }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
 
   const spark = monthsBack(6).map(mDate => {
@@ -1162,7 +1368,7 @@ function renderHome() {
     <p class="section-title">Recent activity</p>
     <div class="list-card">
       ${recent.length ? recent.map(a => `
-        <div class="activity-row">
+        <div class="activity-row" ${a.kind === "payment" ? `data-action="payment-detail" data-id="${a.raw.ID}" style="cursor:pointer;"` : ""}>
           <div class="activity-left">
             ${avatarChip(a.title, "sm")}
             <div class="activity-main">
@@ -1223,6 +1429,7 @@ function renderTenants() {
           </div>
           <p class="list-card-amt">${rupee(t.RentAmount)} <span style="font-weight:500;color:var(--ink-soft);font-size:12.5px;">/ month</span></p>
           ${dueLine}
+          ${Number(t.AdvanceBalance || 0) > 0 ? `<p class="list-card-due" style="color:var(--dev);">${rupee(t.AdvanceBalance)} advance credit — will auto-apply to next due</p>` : ""}
           <div class="list-card-actions">
             <button class="mini-btn primary" data-action="pay" data-id="${t.ID}" ${openDues.length ? "" : "disabled"}>Record payment</button>
             <button class="mini-btn icon" data-action="manage" data-id="${t.ID}">⋯</button>
@@ -2300,15 +2507,21 @@ function openStartNoticeModal(t) {
 
 /* ============================================================ DEPOSIT RETURN */
 function openReturnDepositModal(t) {
+  const openDues = tenantOpenDues(t.ID);
+  const outstanding = openDues.reduce((s, d) => s + dueBalance(d), 0);
+  const deposit = Number(t.Deposit || 0);
   openModal(`
     <p class="modal-title">Return deposit — ${t.Name}</p>
-    <p class="modal-subtitle">This logs the payout as an expense and marks the tenant vacated.</p>
+    <p class="modal-subtitle">Deposit on file: ${rupee(deposit)}${outstanding > 0 ? ` · ${rupee(outstanding)} rent still outstanding` : ""}</p>
     <form id="depositForm">
-      <div class="field"><label>Amount to return (₹)</label><input name="amount" type="number" min="0" value="${t.Deposit || 0}" required></div>
-      <div class="field"><label>Paid from</label>
+      <div class="field"><label>Adjust against outstanding/future rent (₹)</label><input name="adjustAmount" id="depAdjust" type="number" min="0" value="${Math.min(deposit, outstanding)}"></div>
+      <p class="field-hint">This portion isn't paid out — it just settles rent dues directly, oldest first.</p>
+      <div class="field"><label>Refund in cash (₹)</label><input name="cashAmount" id="depCash" type="number" min="0" value="${Math.max(0, deposit - Math.min(deposit, outstanding))}"></div>
+      <div class="field"><label>Paid from (only needed if refunding cash)</label>
         <select name="paidBy">${Object.keys(CONFIG.PEOPLE).map(p => `<option value="${p}">${p}</option>`).join("")}</select>
       </div>
       <div class="field"><label>Notes (optional)</label><textarea name="notes"></textarea></div>
+      <p class="field-hint" id="depTotal"></p>
       <p class="field-error" id="depositErr"></p>
       <div class="modal-actions">
         <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
@@ -2316,10 +2529,26 @@ function openReturnDepositModal(t) {
       </div>
     </form>
   `);
+  const updateTotal = () => {
+    const adjust = Number(document.getElementById("depAdjust").value || 0);
+    const cash = Number(document.getElementById("depCash").value || 0);
+    const total = adjust + cash;
+    const hint = document.getElementById("depTotal");
+    hint.textContent = `Total: ${rupee(total)} of ${rupee(deposit)} deposit`;
+    hint.style.color = total > deposit ? "var(--negative)" : "var(--ink-soft)";
+  };
+  ["depAdjust", "depCash"].forEach(id => document.getElementById(id).addEventListener("input", updateTotal));
+  updateTotal();
+
   guardedSubmit(document.getElementById("depositForm"), async e => {
-    e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
     payload.id = t.ID;
+    const total = Number(payload.adjustAmount || 0) + Number(payload.cashAmount || 0);
+    if (total > deposit) {
+      document.getElementById("depositErr").textContent = "Adjustment + cash refund can't exceed the deposit amount.";
+      document.getElementById("depositErr").style.display = "block";
+      return;
+    }
     try {
       await apiPost("returnDeposit", payload);
       closeModal(); toast("Deposit returned"); await loadData();
@@ -2331,6 +2560,41 @@ function openReturnDepositModal(t) {
 }
 
 /* ============================================================ PAYMENTS */
+function compressImageToBase64(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read the file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Couldn't decode the image."));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve({ base64: dataUrl.split(",")[1], mimeType: "image/jpeg" });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function deviceLabel() {
+  const ua = navigator.userAgent || "";
+  const androidMatch = ua.match(/Android[^;]*;\s*([^)]+)\)/);
+  if (androidMatch) return androidMatch[1].split(";").pop().trim() + " (Android)";
+  const iosMatch = ua.match(/(iPhone|iPad|iPod)/);
+  if (iosMatch) return iosMatch[1] + " (iOS)";
+  return (navigator.platform || "Unknown device");
+}
+
 function openRecordPaymentModal(tenantId) {
   const tenant = state.data.tenants.find(t => t.ID === tenantId);
   if (!tenant) return;
@@ -2347,13 +2611,23 @@ function openRecordPaymentModal(tenantId) {
       </div>
       <div class="field"><label>Date</label><input name="date" type="date" value="${todayISO()}" required></div>
       <div class="field"><label>Amount received (₹)</label><input name="amount" id="amountInput" type="number" min="0" value="${dueBalance(openDues[0])}" required></div>
+      <p class="field-hint">Paying more than what's due here automatically reduces the tenant's next month's rent.</p>
       <div class="field"><label>Payment mode</label>
-        <select name="paymentMode">
+        <select name="paymentMode" id="paymentModeSelect">
           ${Object.entries(CONFIG.PEOPLE).map(([person, cfg]) =>
             `<optgroup label="${person}">${cfg.modes.map(m => `<option value="${m}">${m}</option>`).join("")}</optgroup>`
           ).join("")}
         </select>
       </div>
+      <div class="field" id="screenshotField" style="display:none;">
+        <label>UPI payment screenshot</label>
+        <input type="file" id="screenshotInput" accept="image/*" capture="environment">
+        <p class="field-hint">Required for UPI — lets you verify any payment later. Not needed for cash.</p>
+      </div>
+      <div class="field"><label>Recorded by</label>
+        <select name="recordedBy">${Object.keys(CONFIG.PEOPLE).map(p => `<option value="${p}">${p}</option>`).join("")}</select>
+      </div>
+      <input type="hidden" name="deviceInfo" id="deviceInfoInput" value="${deviceLabel()}">
       <div class="field"><label>Discount / write-off (₹, optional)</label><input name="discount" type="number" min="0" value="0"></div>
       <div class="field"><label>Notes (optional)</label><textarea name="notes"></textarea></div>
       <p class="field-error" id="paymentErr"></p>
@@ -2367,6 +2641,19 @@ function openRecordPaymentModal(tenantId) {
     const bal = e.target.selectedOptions[0].dataset.balance;
     document.getElementById("amountInput").value = bal;
   });
+
+  const modeSelect = document.getElementById("paymentModeSelect");
+  const screenshotField = document.getElementById("screenshotField");
+  const screenshotInput = document.getElementById("screenshotInput");
+  const toggleScreenshot = () => {
+    const isCash = /cash/i.test(modeSelect.value);
+    screenshotField.style.display = isCash ? "none" : "block";
+    screenshotInput.required = !isCash;
+    if (isCash) screenshotInput.value = "";
+  };
+  modeSelect.addEventListener("change", toggleScreenshot);
+  toggleScreenshot();
+
   guardedSubmit(document.getElementById("paymentForm"), async e => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(e.target).entries());
@@ -2375,6 +2662,26 @@ function openRecordPaymentModal(tenantId) {
     const amount = Number(payload.amount || 0);
     const discount = Number(payload.discount || 0);
     const balance = Math.max(0, dueBalance(selectedDue) - amount - discount);
+
+    const file = screenshotInput.files[0];
+    if (screenshotInput.required && !file) {
+      document.getElementById("paymentErr").textContent = "Please attach the UPI payment screenshot.";
+      document.getElementById("paymentErr").style.display = "block";
+      return;
+    }
+    if (file) {
+      try {
+        const compressed = await compressImageToBase64(file, 1280, 0.7);
+        payload.screenshotData = compressed.base64;
+        payload.screenshotType = compressed.mimeType;
+        payload.screenshotName = (tenant.Name || "payment").replace(/[^a-z0-9]/gi, "_") + "-" + payload.date + ".jpg";
+      } catch (err) {
+        document.getElementById("paymentErr").textContent = "Couldn't process the screenshot — try a different photo.";
+        document.getElementById("paymentErr").style.display = "block";
+        return;
+      }
+    }
+
     try {
       await apiPost("recordPayment", payload);
       toast("Payment recorded");
@@ -2384,7 +2691,10 @@ function openRecordPaymentModal(tenantId) {
         mode: payload.paymentMode,
         date: payload.date,
         period: periodLabel(selectedDue.Period),
-        person: personForMode(payload.paymentMode)
+        person: personForMode(payload.paymentMode),
+        dueAmount: Number(selectedDue.AmountDue || 0),
+        rentAmount: Number(tenant.RentAmount || 0),
+        roomNumber: tenant.RoomNumber
       });
     } catch (err) {
       document.getElementById("paymentErr").textContent = err.message;
