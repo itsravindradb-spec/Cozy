@@ -886,11 +886,12 @@ async function loadData() {
   render();
 }
 
-async function apiPost(action, payload) {
+async function apiPost(action, payload, extra) {
+  const bodyObj = Object.assign({ action, payload, token: CONFIG.APP_TOKEN || "" }, extra || {});
   const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight with Apps Script
-    body: JSON.stringify({ action, payload, token: CONFIG.APP_TOKEN || "" })
+    body: JSON.stringify(bodyObj)
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Request failed");
@@ -1588,11 +1589,47 @@ function renderPartners() {
   return monthNavHtml() + sharing + settle + split + partnerList + history;
 }
 
+let partnerAdminPassword = "";
+
+function requirePartnerAdmin(onUnlocked) {
+  if (partnerAdminPassword) { onUnlocked(); return; }
+  openModal(`
+    <p class="modal-title">Admin password required</p>
+    <p class="modal-subtitle">Enter the admin password to edit partner ratios or partners.</p>
+    <form id="partnerAuthForm">
+      <div class="field"><label>Admin password</label><input type="password" id="partnerAuthInput" autocomplete="off" required></div>
+      <p class="field-error" id="partnerAuthErr"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn submit" id="partnerAuthBtn">Unlock</button>
+      </div>
+    </form>
+  `);
+  setTimeout(() => { const el = document.getElementById("partnerAuthInput"); if (el) el.focus(); }, 50);
+  document.getElementById("partnerAuthForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const pwd = document.getElementById("partnerAuthInput").value;
+    const errEl = document.getElementById("partnerAuthErr");
+    const btn = document.getElementById("partnerAuthBtn");
+    btn.disabled = true;
+    try {
+      await apiPost("verifyPartnerPassword", {}, { adminPassword: pwd });
+      partnerAdminPassword = pwd;
+      closeModal();
+      onUnlocked();
+    } catch (err) {
+      btn.disabled = false;
+      errEl.textContent = err.message || "Incorrect admin password.";
+      errEl.style.display = "block";
+    }
+  });
+}
+
 function bindPartners() {
-  document.querySelectorAll("[data-share-edit]").forEach(b => b.addEventListener("click", () => openShareModal(b.dataset.shareEdit, state.month)));
-  document.querySelectorAll("[data-partner-toggle]").forEach(b => b.addEventListener("click", () => confirmTogglePartner(b.dataset.partnerToggle)));
+  document.querySelectorAll("[data-share-edit]").forEach(b => b.addEventListener("click", () => requirePartnerAdmin(() => openShareModal(b.dataset.shareEdit, state.month))));
+  document.querySelectorAll("[data-partner-toggle]").forEach(b => b.addEventListener("click", () => requirePartnerAdmin(() => confirmTogglePartner(b.dataset.partnerToggle))));
   const add = document.getElementById("addPartnerBtn");
-  if (add) add.addEventListener("click", openAddPartnerModal);
+  if (add) add.addEventListener("click", () => requirePartnerAdmin(openAddPartnerModal));
   const btn = document.getElementById("settleBtn");
   if (btn) btn.addEventListener("click", async () => {
     const s = settlementCalc(state.month, state.report);
@@ -1666,13 +1703,13 @@ function openShareModal(prop, key, draft) {
     const m = document.getElementById("shMonth").value;
     if (!rows.length || Math.abs(t - 100) >= 0.01) { err.textContent = "Percentages must add up to exactly 100%."; err.style.display = "block"; return; }
     try {
-      await apiPost("saveShares", { month: m, property: prop, rows: rows.map(r => ({ Partner: r.partner, Percent: Number(r.pct) })) });
+      await apiPost("saveShares", { month: m, property: prop, rows: rows.map(r => ({ Partner: r.partner, Percent: Number(r.pct) })) }, { adminPassword: partnerAdminPassword });
       closeModal(); toast("Split saved"); await loadData();
     } catch (e) { err.textContent = e.message; err.style.display = "block"; }
   });
   const clr = document.getElementById("shClear");
   if (clr) clr.addEventListener("click", async () => {
-    try { await apiPost("deleteShares", { month, property: prop }); closeModal(); toast("Setting removed"); await loadData(); }
+    try { await apiPost("deleteShares", { month, property: prop }, { adminPassword: partnerAdminPassword }); closeModal(); toast("Setting removed"); await loadData(); }
     catch (e) { toast("Couldn't remove: " + e.message); }
   });
 }
@@ -1680,7 +1717,7 @@ function openShareModal(prop, key, draft) {
 /* ---------- partner list ---------- */
 async function ensurePartnersSaved() {
   if (state.data.partners.length) return;
-  for (const [n, c] of Object.entries(CONFIG.PEOPLE)) await apiPost("addPartner", { Name: n, Modes: c.modes.join(", "), Active: "Yes" });
+  for (const [n, c] of Object.entries(CONFIG.PEOPLE)) await apiPost("addPartner", { Name: n, Modes: c.modes.join(", "), Active: "Yes" }, { adminPassword: partnerAdminPassword });
   await loadData();
 }
 
@@ -1707,7 +1744,7 @@ function openAddPartnerModal() {
     if (Object.keys(getPeople()).some(n => n.toLowerCase() === f.Name.toLowerCase())) { errEl.textContent = "A partner with this name already exists."; errEl.style.display = "block"; return; }
     try {
       await ensurePartnersSaved();
-      await apiPost("addPartner", { Name: f.Name, Modes: f.Modes.trim(), Active: "Yes" });
+      await apiPost("addPartner", { Name: f.Name, Modes: f.Modes.trim(), Active: "Yes" }, { adminPassword: partnerAdminPassword });
       closeModal(); toast("Partner added"); await loadData();
     } catch (err) { errEl.textContent = err.message; errEl.style.display = "block"; }
   });
@@ -1731,7 +1768,7 @@ function confirmTogglePartner(name) {
     try {
       await ensurePartnersSaved();
       const id = getPeople()[name].id;
-      await apiPost("updatePartner", { id, Active: removing ? "No" : "Yes" });
+      await apiPost("updatePartner", { id, Active: removing ? "No" : "Yes" }, { adminPassword: partnerAdminPassword });
       closeModal(); toast(removing ? "Partner removed" : "Partner restored"); await loadData();
     } catch (err) { toast("Couldn't update: " + err.message); }
   });
@@ -2008,6 +2045,8 @@ function roomOptionsFor(property, selectedRoomId) {
 
 function tenantFormFields(t) {
   const property = t ? t.Property : CONFIG.PROPERTIES[0];
+  const defaultDueDay = t ? (t.RentDueDay || (t.CheckInDate ? new Date(t.CheckInDate).getDate() : 1)) : 1;
+  const defaultBillingMonth = t && t.BillingStartMonth ? String(t.BillingStartMonth).slice(0, 7) : todayISO().slice(0, 7);
   return `
     <div class="field"><label>Property</label>
       <select name="Property" id="tenantPropertySelect">${CONFIG.PROPERTIES.map(p => `<option value="${p}" ${p === property ? "selected" : ""}>${p}</option>`).join("")}</select>
@@ -2017,10 +2056,18 @@ function tenantFormFields(t) {
     </div>
     <div class="field"><label>Tenant name</label><input name="Name" value="${t ? t.Name : ""}" required></div>
     <div class="field"><label>Phone</label><input name="Phone" type="tel" value="${t ? t.Phone : ""}"></div>
-    <div class="field"><label>Monthly rent (₹)</label><input name="RentAmount" type="number" min="0" value="${t ? t.RentAmount : ""}" required></div>
+    <div class="field"><label>Monthly rent (₹)</label><input name="RentAmount" id="tenantRentInput" type="number" min="0" value="${t ? t.RentAmount : ""}" required></div>
     <div class="field"><label>Security deposit (₹)</label><input name="Deposit" type="number" min="0" value="${t ? t.Deposit : ""}"></div>
-    <div class="field"><label>Check-in date</label><input name="CheckInDate" type="date" value="${t ? String(t.CheckInDate).slice(0, 10) : todayISO()}" ${t ? "disabled" : "required"}></div>
-    ${t ? `<p class="field-hint">Check-in date can't be edited once dues have started generating.</p>` : `<p class="field-hint">Rent is billed monthly from this date — the first month is prorated automatically.</p>`}
+    <div class="field"><label>Check-in date</label><input name="CheckInDate" id="tenantCheckInInput" type="date" value="${t ? String(t.CheckInDate).slice(0, 10) : todayISO()}" ${t ? "disabled" : "required"}></div>
+    ${t ? `<p class="field-hint">Check-in date can't be edited once dues have started generating.</p>` : ""}
+    <div class="field"><label>Rent due day (of month, 1–31)</label><input name="RentDueDay" id="tenantDueDayInput" type="number" min="1" max="31" value="${defaultDueDay}" required></div>
+    <p class="field-hint">e.g. 1 = 1st of every month, 7 = 7th to 7th cycle, 5 = 5th of every month.</p>
+    ${!t ? `
+    <div class="field"><label>Start billing from month</label><input name="BillingStartMonth" id="tenantBillingStartInput" type="month" value="${defaultBillingMonth}" required></div>
+    <p class="field-hint">For existing tenants, keep their actual check-in date above and set this to the month dues should start (e.g. Nov 2026) so older months aren't billed.</p>
+    <div class="field"><label>Starting rent for how many days?</label><input name="InitialDays" id="tenantInitialDaysInput" type="number" min="0" max="62" value=""></div>
+    <p class="field-hint" id="initialRentPreview">Auto-calculated from check-in &amp; due day — edit to override, or set 0 to skip initial due.</p>
+    ` : ""}
   `;
 }
 
@@ -2029,6 +2076,63 @@ function bindRoomDependency() {
   const roomSel = document.getElementById("tenantRoomSelect");
   if (!propSel) return;
   propSel.addEventListener("change", () => { roomSel.innerHTML = roomOptionsFor(propSel.value, null); });
+}
+
+function bindTenantBillingPreview() {
+  const rentEl = document.getElementById("tenantRentInput");
+  const ciEl = document.getElementById("tenantCheckInInput");
+  const dueDayEl = document.getElementById("tenantDueDayInput");
+  const bsmEl = document.getElementById("tenantBillingStartInput");
+  const daysEl = document.getElementById("tenantInitialDaysInput");
+  const previewEl = document.getElementById("initialRentPreview");
+  if (!daysEl || !previewEl) return;
+
+  let manuallyEditedDays = false;
+  daysEl.addEventListener("input", () => {
+    manuallyEditedDays = daysEl.value !== "";
+    renderPreview();
+  });
+
+  function suggestedDays() {
+    const ciVal = ciEl.value;
+    const dueDay = Number(dueDayEl.value) || 1;
+    const bsm = bsmEl.value;
+    if (!ciVal) return 30;
+    const ci = new Date(ciVal + "T00:00:00");
+    const dim = new Date(ci.getFullYear(), ci.getMonth() + 1, 0).getDate();
+    const ciMonth = ciVal.slice(0, 7);
+    if (bsm && bsm > ciMonth) {
+      const [by, bm] = bsm.split("-").map(Number);
+      return new Date(by, bm, 0).getDate();
+    }
+    const ciDay = ci.getDate();
+    if (dueDay === ciDay) return dim;
+    if (dueDay === 1) return dim - ciDay + 1;
+    if (dueDay > ciDay) return dueDay - ciDay;
+    return (dim - ciDay) + dueDay;
+  }
+
+  function renderPreview() {
+    if (!manuallyEditedDays) {
+      daysEl.value = suggestedDays();
+    }
+    const rent = Number(rentEl.value) || 0;
+    const days = Number(daysEl.value);
+    const bsm = bsmEl.value || todayISO().slice(0, 7);
+    const [by, bm] = bsm.split("-").map(Number);
+    const dim = new Date(by, bm, 0).getDate();
+    if (days <= 0) {
+      previewEl.textContent = "No initial due will be created — first due starts on the next billing cycle.";
+      return;
+    }
+    const amt = (days >= dim) ? rent : Math.round((rent / dim) * days);
+    previewEl.textContent = `First due (${bsm}): ${rupee(amt)} for ${days} day${days === 1 ? "" : "s"}${days >= dim ? " (full month)" : ""}. Set 0 to skip.`;
+  }
+
+  [rentEl, ciEl, dueDayEl, bsmEl].forEach(el => {
+    if (el) el.addEventListener("input", renderPreview);
+  });
+  renderPreview();
 }
 
 function openAddTenantModal() {
@@ -2044,6 +2148,7 @@ function openAddTenantModal() {
     </form>
   `);
   bindRoomDependency();
+  bindTenantBillingPreview();
   document.getElementById("tenantForm").addEventListener("submit", async e => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -2081,6 +2186,8 @@ function openEditTenantModal(tenant) {
     payload.RoomNumber = roomSel.selectedOptions[0] ? roomSel.selectedOptions[0].dataset.roomnumber || "" : "";
     payload.ID = tenant.ID;
     delete payload.CheckInDate; // disabled field isn't submitted, but just in case
+    delete payload.BillingStartMonth;
+    delete payload.InitialDays;
     try {
       await apiPost("updateTenant", payload);
       closeModal(); toast("Tenant updated"); await loadData();
