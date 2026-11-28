@@ -1098,15 +1098,16 @@ function renderTenants() {
   return `<div class="cards-grid">` + Object.keys(groups).sort().map(key => `
     <p class="room-group-title">${key}</p>
     ${groups[key].map(t => {
-      const openDues = tenantOpenDues(t.ID);
+      const openDues = tenantOpenDues(t.ID).filter(d => dueBalance(d) > 0);
+      const totalBal = openDues.reduce((s, d) => s + dueBalance(d), 0);
       const nextDue = openDues[0];
       let dueLine = `<p class="list-card-due">All rent settled</p>`;
-      if (nextDue) {
-        const bal = dueBalance(nextDue);
+      if (nextDue && totalBal > 0) {
         const ov = daysOverdue(nextDue.DueDate);
+        const monthsNote = openDues.length > 1 ? ` (${openDues.length} months)` : "";
         dueLine = ov > 0
-          ? `<p class="list-card-due overdue">${rupee(bal)} due · ${ov} day${ov === 1 ? "" : "s"} overdue</p>`
-          : `<p class="list-card-due">${rupee(bal)} due · ${periodLabel(nextDue.Period)}</p>`;
+          ? `<p class="list-card-due overdue">${rupee(totalBal)} due${monthsNote} · ${ov} day${ov === 1 ? "" : "s"} overdue</p>`
+          : `<p class="list-card-due">${rupee(totalBal)} due${monthsNote} · ${periodLabel(nextDue.Period)}</p>`;
       }
       return `
         <div class="list-card">
